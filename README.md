@@ -11,7 +11,7 @@ Add to the site's `Gemfile`:
 
 ```ruby
 group :development do
-  gem "jekyll_listmonk", path: "../jekyll_listmonk"
+  gem "jekyll_listmonk", github: "christopheradams/jekyll-listmonk"
 end
 ```
 
