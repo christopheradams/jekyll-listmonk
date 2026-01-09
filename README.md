@@ -23,10 +23,22 @@ bundle install
 
 ## Usage
 
+Run these commands from inside your Jekyll site repo (so the site's Bundler environment and plugins
+are available).
+
 Preview rendered HTML:
 
 ```sh
 bundle exec jekyll-listmonk preview 2025-12-19-white-fungus-issue-18-dino
+```
+
+Upload a media file to Listmonk:
+
+```sh
+LISTMONK_URL="https://list.example.com" \
+LISTMONK_USER="api_user" \
+LISTMONK_TOKEN="api_token" \
+bundle exec jekyll-listmonk upload /path/to/image.jpg
 ```
 
 Create a campaign:
@@ -37,6 +49,16 @@ LISTMONK_USER="api_user" \
 LISTMONK_TOKEN="api_token" \
 LISTMONK_LIST_IDS="1" \
 bundle exec jekyll-listmonk campaign 2025-12-19-white-fungus-issue-18-dino
+```
+
+Create a campaign and upload referenced images to Listmonk media (rewriting `<img src>` URLs in the HTML):
+
+```sh
+LISTMONK_URL="https://list.example.com" \
+LISTMONK_USER="api_user" \
+LISTMONK_TOKEN="api_token" \
+LISTMONK_LIST_IDS="1" \
+bundle exec jekyll-listmonk campaign --upload-media 2025-12-19-white-fungus-issue-18-dino
 ```
 
 ### Environment variables
@@ -59,13 +81,18 @@ Optional:
 - `LISTMONK_TAGS` (comma-separated)
 - `DRY_RUN=1` (prints HTML and does not call the API)
 
+### Jekyll-related CLI flags
+
+- `--picture-tag-preset PRESET`: rewrites `{% picture %}` tags to use this preset. If omitted, does not add/override presets (so Jekyll Picture Tag uses the site's default).
+- `--track_links`: appends `@TrackLink` to eligible `<a href="...">` URLs in the final HTML (useful for Listmonk link tracking).
+
 ## Image behavior
 
 - If a post's front matter has an `image` field, a `{% picture ... %}` tag is injected as
   the first line of content.
-- In-body `{% picture ... %}` tags are rewritten to use the `newsletter` preset and have
-  `--img class="..."` removed.
+- In-body `{% picture ... %}` tags have `--img class="..."` removed, and if
+  `--picture-tag-preset` is provided, they are rewritten to use that preset.
 - Any resulting `srcset`/`sizes` attributes are stripped from `<img>` tags in the output.
 
-This expects the target site to define a `newsletter` preset in `_data/picture.yml`.
+If you pass `--picture-tag-preset`, the target site must define that preset in `_data/picture.yml`.
 

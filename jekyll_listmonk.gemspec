@@ -1,12 +1,12 @@
 Gem::Specification.new do |spec|
   spec.name = "jekyll_listmonk"
-  spec.version = "0.1.0"
+  spec.version = "0.2.0"
   spec.authors = ["Christopher Adams"]
   spec.email = ["info@christopheradams.io"]
 
   spec.summary = "Create listmonk campaigns from Jekyll posts."
   spec.description = "A small CLI that renders a Jekyll post (Liquid + Markdown) and creates a listmonk campaign."
-  spec.homepage = "https://github.com/yourname/jekyll_listmonk"
+  spec.homepage = "https://github.com/christopheradams/jekyll-listmonk"
   spec.license = "MIT"
   spec.required_ruby_version = ">= 3.0"
 

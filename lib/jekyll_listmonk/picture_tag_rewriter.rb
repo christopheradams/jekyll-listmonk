@@ -1,7 +1,8 @@
 module JekyllListmonk
   class PictureTagRewriter
-    def initialize(preset: "newsletter")
-      @preset = preset
+    def initialize(preset: nil)
+      @preset = preset&.to_s&.strip
+      @preset = nil if @preset.nil? || @preset.empty?
     end
 
     def rewrite(markdown, frontmatter_image:)
@@ -46,6 +47,8 @@ module JekyllListmonk
     end
 
     def transform_picture_tag(tag)
+      require "shellwords"
+
       m = tag.match(/\A(\s*)\{\%\s*picture\s+([\s\S]*?)\s*\%\}(\s*)\z/)
       return tag unless m
 
@@ -53,19 +56,51 @@ module JekyllListmonk
       inner = m[2]
       trailing_ws = m[3]
 
-      inner_lstripped = inner.lstrip
+      tokens = Shellwords.shellsplit(inner)
 
-      # If the tag doesn't already specify a preset, insert our newsletter preset.
-      if inner_lstripped.start_with?("/") || inner_lstripped.start_with?("./") || inner_lstripped.start_with?("../")
-        inner = "#{@preset} " + inner_lstripped
-      else
-        inner = inner_lstripped
+      # Split positional args (preset/path) from options (starting at first --flag).
+      opt_index = tokens.index { |t| t.start_with?("--") }
+      positional = opt_index ? tokens[0...opt_index] : tokens.dup
+      options = opt_index ? tokens[opt_index..] : []
+
+      # If a preset is configured, enforce it:
+      # - 1 positional arg => it's a path; insert preset before it.
+      # - 2+ positional args => assume first is preset; replace it.
+      #
+      # If no preset is configured, do not add or override a preset (so
+      # `{% picture path %}` uses the site's default preset).
+      if positional.empty?
+        # Unusual/invalid tag; leave unchanged.
+        return tag
       end
 
-      # Remove `--img class="..."` (and single-quote variant).
-      inner = inner.gsub(/\s+--img\s+class=(\"[^\"]*\"|'[^']*')/, "")
+      if @preset
+        if positional.length == 1
+          positional = [@preset, positional[0]]
+        elsif positional.length >= 2
+          positional[0] = @preset
+        end
+      end
 
-      "#{leading_ws}{% picture #{inner.rstrip} %}#{trailing_ws}"
+      # Remove `--img class="..."` (and single-quote variant), which appears as:
+      #   --img class="foo"
+      # i.e., two tokens.
+      cleaned_options = []
+      i = 0
+      while i < options.length
+        if options[i] == "--img" && options[i + 1]&.start_with?("class=")
+          i += 2
+          next
+        end
+        cleaned_options << options[i]
+        i += 1
+      end
+
+      normalized_inner = Shellwords.join(positional + cleaned_options)
+      "#{leading_ws}{% picture #{normalized_inner} %}#{trailing_ws}"
+    rescue ArgumentError
+      # Shellwords failed (usually due to unbalanced quotes); fall back to no-op.
+      tag
     end
 
     def inject_frontmatter_image_picture_tag(markdown, image_field)
