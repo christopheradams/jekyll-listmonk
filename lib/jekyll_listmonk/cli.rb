@@ -50,12 +50,17 @@ module JekyllListmonk
         0
       when "campaign"
         upload_media = false
+        format = "html"
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
             upload_media = true
           end
+          o.on("--format FORMAT", "Campaign format: html (default) or markdown") do |v|
+            format = v.to_s.strip.downcase
+          end
         end
         campaign_opts.parse!(@argv)
+        raise "Invalid --format #{format.inspect} (expected html|markdown)" unless %w[html markdown].include?(format)
 
         post = @argv.shift
         raise "Missing post identifier" if post.nil? || post.empty?
@@ -82,8 +87,15 @@ module JekyllListmonk
         end
         html = rewrite_href_track_link(html) if @track_link
 
+        content_type = "html"
+        body = html
+        if format == "markdown"
+          content_type = "markdown"
+          body = html_to_markdown(body)
+        end
+
         if dry_run
-          puts html
+          puts body
           warn "DRY_RUN=1 set, not calling Listmonk."
           return 0
         end
@@ -112,7 +124,8 @@ module JekyllListmonk
           name: name,
           subject: subject,
           lists: list_ids,
-          html_body: html,
+          body: body,
+          content_type: content_type,
           type: type,
           template_id: template_id,
           from_email: from_email,
@@ -268,6 +281,16 @@ module JekyllListmonk
           %(#{prefix}"#{href}@TrackLink")
         end
       end
+    end
+
+    def html_to_markdown(html)
+      begin
+        require "reverse_markdown"
+      rescue LoadError => e
+        raise "reverse_markdown is required for --format markdown (#{e.message}). Add it to your bundle or install it."
+      end
+
+      ReverseMarkdown.convert(html.to_s)
     end
   end
 end

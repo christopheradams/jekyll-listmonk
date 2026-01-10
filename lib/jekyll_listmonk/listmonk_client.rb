@@ -33,20 +33,25 @@ module JekyllListmonk
       name:,
       subject:,
       lists:,
-      html_body:,
+      body: nil,
+      content_type: "html",
+      html_body: nil,
       type: "regular",
       template_id: nil,
       from_email: nil,
       from_name: nil,
       tags: nil
     )
+      body = html_body if body.nil?
+      raise Error, "Missing campaign body" if body.nil?
+
       payload = {
         name: name,
         subject: subject,
         lists: lists,
         type: type,
-        content_type: "html",
-        body: html_body
+        content_type: content_type,
+        body: body
       }
 
       payload[:template_id] = template_id if template_id

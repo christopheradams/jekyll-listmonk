@@ -51,6 +51,16 @@ LISTMONK_LIST_IDS="1" \
 bundle exec jekyll-listmonk campaign 2025-12-19-white-fungus-issue-18-dino
 ```
 
+Create a campaign using Markdown instead of HTML:
+
+```sh
+LISTMONK_URL="https://list.example.com" \
+LISTMONK_USER="api_user" \
+LISTMONK_TOKEN="api_token" \
+LISTMONK_LIST_IDS="1" \
+bundle exec jekyll-listmonk campaign --format markdown 2025-12-19-white-fungus-issue-18-dino
+```
+
 Create a campaign and upload referenced images to Listmonk media (rewriting `<img src>` URLs in the HTML):
 
 ```sh
