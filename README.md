@@ -100,10 +100,14 @@ Optional:
 - `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`
 - `LISTMONK_TAGS` (comma-separated)
 
-### Jekyll-related CLI flags
+### Campaign CLI flags
 
 - `--picture-tag-preset PRESET`: rewrites `{% picture %}` tags to use this preset. If omitted, does not add/override presets (so Jekyll Picture Tag uses the site's default).
-- `--track_links`: appends `@TrackLink` to eligible `<a href="...">` URLs in the final HTML (useful for Listmonk link tracking).
+- `--track-links`: appends `@TrackLink` to eligible `<a href="...">` URLs in the final HTML (useful for Listmonk link tracking).
+- `--frontmatter-image`: injects the post frontmatter `image` at the top of the body.
+- `--upload-media`: uploads referenced images to Listmonk media and rewrites `<img src>` to the returned `data.url`.
+- `--format html|markdown`: sets the campaign `content_type` and body format.
+- `--dry-run`: prints the final body and does not call Listmonk APIs.
 
 ## Image behavior
 

@@ -15,21 +15,12 @@ module JekyllListmonk
 
     def initialize(argv)
       @argv = argv.dup
-      @picture_tag_preset = nil
-      @track_link = false
       @dry_run = false
     end
 
     def run
       global = OptionParser.new do |o|
         o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload"
-        o.on("--picture-tag-preset PRESET", "Force Jekyll Picture Tag preset for rewritten `{% picture %}` tags") do |v|
-          v = v.to_s.strip
-          @picture_tag_preset = v.empty? ? nil : v
-        end
-        o.on("--track_links", "Append @TrackLink to every eligible href URL") do
-          @track_link = true
-        end
         o.on("--dry-run", "Render/print output but do not call Listmonk APIs") do
           @dry_run = true
         end
@@ -48,12 +39,21 @@ module JekyllListmonk
         format = "html"
         dry_run = @dry_run
         include_frontmatter_image = false
+        picture_tag_preset = nil
+        track_links = false
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
             upload_media = true
           end
           o.on("--format FORMAT", "Campaign format: html (default) or markdown") do |v|
             format = v.to_s.strip.downcase
+          end
+          o.on("--picture-tag-preset PRESET", "Force Jekyll Picture Tag preset for rewritten `{% picture %}` tags") do |v|
+            v = v.to_s.strip
+            picture_tag_preset = v.empty? ? nil : v
+          end
+          o.on("--track-links", "Append @TrackLink to every eligible href URL") do
+            track_links = true
           end
           o.on("--frontmatter-image", "Inject the post frontmatter `image` at the top of the body") do
             include_frontmatter_image = true
@@ -67,7 +67,7 @@ module JekyllListmonk
         post = @argv.shift
         raise "Missing post identifier" if post.nil? || post.empty?
 
-        renderer = JekyllPostRenderer.new(source_dir: Dir.pwd, picture_tag_preset: @picture_tag_preset)
+        renderer = JekyllPostRenderer.new(source_dir: Dir.pwd, picture_tag_preset: picture_tag_preset)
         rendered = nil
         html = nil
 
@@ -96,7 +96,7 @@ module JekyllListmonk
           html = rendered[:html].to_s
           html = absolutize_img_srcs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
         end
-        html = rewrite_href_track_link(html) if @track_link
+        html = rewrite_href_track_link(html) if track_links
 
         content_type = "html"
         body = html
