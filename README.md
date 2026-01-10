@@ -23,10 +23,16 @@ bundle install
 
 ## Usage
 
-Preview rendered HTML:
+Run these commands from inside your Jekyll site repo (so the site's Bundler environment and plugins
+are available).
+
+Upload a media file to Listmonk:
 
 ```sh
-bundle exec jekyll-listmonk preview 2025-12-19-white-fungus-issue-18-dino
+LISTMONK_URL="https://list.example.com" \
+LISTMONK_USER="api_user" \
+LISTMONK_TOKEN="api_token" \
+bundle exec jekyll-listmonk upload /path/to/image.jpg
 ```
 
 Create a campaign:
@@ -57,15 +63,30 @@ Optional:
 - `LISTMONK_CAMPAIGN_TYPE` (defaults to `regular`)
 - `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`
 - `LISTMONK_TAGS` (comma-separated)
-- `DRY_RUN=1` (prints HTML and does not call the API)
+
+### Campaign CLI flags
+
+- `--picture-tag-preset PRESET`: rewrites `{% picture %}` tags to use this preset. If omitted, does not add/override presets (so Jekyll Picture Tag uses the site's default).
+- `--track-links`: appends `@TrackLink` to eligible `<a href="...">` URLs in the final HTML (useful for Listmonk link tracking).
+- `--frontmatter-image`: injects the post frontmatter `image` at the top of the body.
+- `--upload-media`: uploads referenced images to Listmonk media and rewrites `<img src>` to the returned `data.url`.
+- `--format html|markdown`: sets the campaign `content_type` and body format.
+- `--dry-run`: prints the final body and does not call Listmonk APIs. If used together with `--upload-media`, no uploads happen but `<img src>` URLs are rewritten to a guessed location: `LISTMONK_URL + "/upload/" + image_filename`.
 
 ## Image behavior
 
-- If a post's front matter has an `image` field, a `{% picture ... %}` tag is injected as
-  the first line of content.
-- In-body `{% picture ... %}` tags are rewritten to use the `newsletter` preset and have
-  `--img class="..."` removed.
+- The post frontmatter `image` is only injected when `campaign --frontmatter-image` is set.
+- If the frontmatter image is injected and you're using `campaign --upload-media`, a
+  `{% picture ... %}` tag is injected as the first line of content (when the Liquid `picture` tag is available).
+- If the frontmatter image is injected and `--upload-media` is not used, it is injected as a Markdown image (`![alt](url)`)
+  so the email does not depend on picture-tag-generated derivatives existing in the site build.
+- If the site does not have the Liquid `picture` tag available (for example, it is not using
+  `jekyll_picture_tag`), the injected frontmatter image falls back to a Markdown image (`![alt](url)`).
+- If the post already starts with the same image (either a `{% picture %}` block or a Markdown image),
+  the frontmatter image is not injected again (to avoid duplicates).
+- In-body `{% picture ... %}` tags have `--img class="..."` removed, and if
+  `--picture-tag-preset` is provided, they are rewritten to use that preset.
 - Any resulting `srcset`/`sizes` attributes are stripped from `<img>` tags in the output.
 
-This expects the target site to define a `newsletter` preset in `_data/picture.yml`.
+If you pass `--picture-tag-preset`, the target site must define that preset in `_data/picture.yml`.
 

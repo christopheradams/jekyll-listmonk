@@ -1,6 +1,7 @@
 require "json"
 require "net/http"
 require "uri"
+require "securerandom"
 
 module JekyllListmonk
   class ListmonkClient
@@ -32,20 +33,25 @@ module JekyllListmonk
       name:,
       subject:,
       lists:,
-      html_body:,
+      body: nil,
+      content_type: "html",
+      html_body: nil,
       type: "regular",
       template_id: nil,
       from_email: nil,
       from_name: nil,
       tags: nil
     )
+      body = html_body if body.nil?
+      raise Error, "Missing campaign body" if body.nil?
+
       payload = {
         name: name,
         subject: subject,
         lists: lists,
         type: type,
-        content_type: "html",
-        body: html_body
+        content_type: content_type,
+        body: body
       }
 
       payload[:template_id] = template_id if template_id
@@ -56,11 +62,64 @@ module JekyllListmonk
       post_json!("/api/campaigns", payload)
     end
 
+    # Upload a media file. Returns parsed JSON response.
+    # https://listmonk.app/docs/apis/media/
+    def upload_media!(file_path)
+      path = file_path.to_s
+      raise Error, "File not found: #{path}" unless File.file?(path)
+
+      filename = File.basename(path)
+      file_bytes = File.binread(path)
+
+      boundary = "--------------------------#{SecureRandom.hex(12)}"
+      body = +""
+      body << "--#{boundary}\r\n"
+      body << %(Content-Disposition: form-data; name="file"; filename="#{filename}"\r\n)
+      body << "Content-Type: application/octet-stream\r\n\r\n"
+      body << file_bytes
+      body << "\r\n--#{boundary}--\r\n"
+
+      post_multipart!("/api/media", body, boundary: boundary)
+    end
+
+    # Convert a relative `/uploads/...` path to a full URL using LISTMONK_URL.
+    def absolute_url(path_or_url)
+      s = path_or_url.to_s.strip
+      return "" if s.empty?
+      return s if s.start_with?("http://", "https://")
+
+      base = @base_uri.dup
+      base.path = ""
+      base.query = nil
+      base.fragment = nil
+      base.to_s.sub(%r{/\z}, "") + (s.start_with?("/") ? s : "/#{s}")
+    end
+
     private
+
+    def join_uri_path(base_path, extra_path)
+      base = base_path.to_s
+      extra = extra_path.to_s
+
+      base = "" if base == "/"
+      base = base.sub(%r{/\z}, "")
+      extra = extra.sub(%r{\A/}, "")
+
+      joined = [base, extra].reject(&:empty?).join("/")
+      joined.start_with?("/") ? joined : "/#{joined}"
+    end
+
+    def http_for(uri)
+      http = Net::HTTP.new(uri.host, uri.port)
+      http.use_ssl = (uri.scheme == "https")
+      http.open_timeout = @timeout
+      http.read_timeout = @timeout
+      http
+    end
 
     def post_json!(path, payload)
       uri = @base_uri.dup
-      uri.path = File.join(uri.path, path)
+      uri.path = join_uri_path(uri.path, path)
 
       req = Net::HTTP::Post.new(uri)
       req["Accept"] = "application/json"
@@ -69,12 +128,24 @@ module JekyllListmonk
 
       apply_auth!(req)
 
-      http = Net::HTTP.new(uri.host, uri.port)
-      http.use_ssl = (uri.scheme == "https")
-      http.open_timeout = @timeout
-      http.read_timeout = @timeout
+      request_json!(uri, req)
+    end
 
-      res = http.request(req)
+    def post_multipart!(path, body, boundary:)
+      uri = @base_uri.dup
+      uri.path = join_uri_path(uri.path, path)
+
+      req = Net::HTTP::Post.new(uri)
+      req["Accept"] = "application/json"
+      req["Content-Type"] = "multipart/form-data; boundary=#{boundary}"
+      req.body = body
+
+      apply_auth!(req)
+      request_json!(uri, req)
+    end
+
+    def request_json!(uri, req)
+      res = http_for(uri).request(req)
       body = res.body.to_s
 
       raise Error, "Listmonk API error (HTTP #{res.code}): #{body}" unless res.is_a?(Net::HTTPSuccess)
