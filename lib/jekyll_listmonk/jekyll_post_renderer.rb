@@ -12,7 +12,7 @@ module JekyllListmonk
     # - a slug like "instructions-beyond-code"
     # - a post filename stem like "2024-03-07-instructions-beyond-code"
     # - a path like "_posts/2024-03-07-instructions-beyond-code.md"
-    def render_post_fragment!(identifier, destination_dir: nil)
+    def render_post_fragment!(identifier, destination_dir: nil, inject_frontmatter_picture_tag: true)
       require "jekyll"
       require "liquid"
 
@@ -32,6 +32,7 @@ module JekyllListmonk
 
       doc.data["layout"] = nil
       picture_tag_available = Liquid::Template.tags.key?("picture")
+      picture_tag_available &&= inject_frontmatter_picture_tag
       doc.content = @rewriter.rewrite(original_content,
                                       frontmatter_image: doc.data["image"],
                                       picture_tag_available: picture_tag_available)

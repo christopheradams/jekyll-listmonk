@@ -97,8 +97,10 @@ Optional:
 
 ## Image behavior
 
-- If a post's front matter has an `image` field, a `{% picture ... %}` tag is injected as
-  the first line of content.
+- If a post's front matter has an `image` field and you're using `campaign --upload-media`, a
+  `{% picture ... %}` tag is injected as the first line of content (when the Liquid `picture` tag is available).
+- If `--upload-media` is not used, the frontmatter image is injected as a Markdown image (`![alt](url)`)
+  so the email does not depend on picture-tag-generated derivatives existing in the site build.
 - If the site does not have the Liquid `picture` tag available (for example, it is not using
   `jekyll_picture_tag`), the injected frontmatter image falls back to a Markdown image (`![alt](url)`).
 - If the post already starts with the same image (either a `{% picture %}` block or a Markdown image),

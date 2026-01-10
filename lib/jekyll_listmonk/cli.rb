@@ -64,7 +64,7 @@ module JekyllListmonk
 
         if upload_media
           Dir.mktmpdir("jekyll-listmonk-site-") do |dest|
-            rendered = renderer.render_post_fragment!(post, destination_dir: dest)
+            rendered = renderer.render_post_fragment!(post, destination_dir: dest, inject_frontmatter_picture_tag: true)
             html = rendered[:html].to_s
             unless dry_run
               client = ListmonkClient.from_env
@@ -74,7 +74,10 @@ module JekyllListmonk
             end
           end
         else
-          rendered = renderer.render_post_fragment!(post)
+          # If we are not uploading media, don't inject a `{% picture %}` tag for the
+          # frontmatter image. Fall back to a plain Markdown image instead so the email
+          # doesn't depend on picture-tag-generated derivatives existing in the site build.
+          rendered = renderer.render_post_fragment!(post, inject_frontmatter_picture_tag: false)
           html = rendered[:html].to_s
         end
         html = rewrite_href_track_link(html) if @track_link
