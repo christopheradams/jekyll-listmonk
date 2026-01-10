@@ -3,11 +3,11 @@ production.**
 
 # jekyll_listmonk
 
-Create listmonk campaigns from Jekyll posts.
+Create Listmonk campaigns from Jekyll posts.
 
-This gem helps you turn your Jekyll posts into beautiful newsletters by handling the heavy lifting of converting your site's content and assets for email compatibility.
+This gem renders a Jekyll post to HTML and creates a campaign in Listmonk. It can also upload local images found in the post to Listmonk's media library and update the image URLs in the HTML.
 
-It runs within your existing Jekyll environment, meaning it automatically works with your site's plugins (like `jekyll_picture_tag`) to ensure your images and content look exactly how you expect.
+It runs within your Jekyll site's environment. It has specific support for `jekyll_picture_tag` to help generate email-compatible image markup.
 
 ## Install (in a target Jekyll repo)
 
