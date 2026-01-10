@@ -72,13 +72,8 @@ module JekyllListmonk
         end
         0
       when "campaign"
-        upload_media = false
-        format = "html"
         # dry_run can be set globally or per-command. Inherit global if set.
         dry_run = @dry_run
-        include_frontmatter_image = false
-        picture_tag_preset = nil
-        track_links = false
         test_email = nil
         
         # Command-specific config overrides
@@ -86,20 +81,20 @@ module JekyllListmonk
 
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
-            upload_media = true
+            cmd_config[:upload_media] = true
           end
           o.on("--format FORMAT", "Campaign format: html (default) or markdown") do |v|
-            format = v.to_s.strip.downcase
+             cmd_config[:format] = v.to_s.strip.downcase
           end
           o.on("--picture-tag-preset PRESET", "Force Jekyll Picture Tag preset for rewritten `{% picture %}` tags") do |v|
             v = v.to_s.strip
-            picture_tag_preset = v.empty? ? nil : v
+            cmd_config[:picture_tag_preset] = v.empty? ? nil : v
           end
           o.on("--track-links", "Append @TrackLink to every eligible href URL") do
-            track_links = true
+             cmd_config[:track_links] = true
           end
           o.on("--frontmatter-image", "Inject the post frontmatter `image` at the top of the body") do
-            include_frontmatter_image = true
+             cmd_config[:include_frontmatter_image] = true
           end
           o.on("--test-email EMAIL", "Send a test email to this address for the created campaign") do |v|
             test_email = v.to_s.strip
@@ -129,13 +124,23 @@ module JekyllListmonk
           o.on("--dry-run", "Alias for global --dry-run") { dry_run = true }
         end
         campaign_opts.parse!(@argv)
-        raise "Invalid --format #{format.inspect} (expected html|markdown)" unless %w[html markdown].include?(format)
+        if cmd_config[:format] && !%w[html markdown].include?(cmd_config[:format])
+          raise "Invalid --format #{cmd_config[:format].inspect} (expected html|markdown)"
+        end
 
         # Merge command-specific config into global options for resolution
         @cmd_config = cmd_config
+        cfg = resolve_config
 
         post = @argv.shift
         raise "Missing post identifier" if post.nil? || post.empty?
+        
+        # Load params from config
+        upload_media = cfg[:upload_media]
+        format = cfg[:format] || "html"
+        picture_tag_preset = cfg[:picture_tag_preset]
+        track_links = cfg[:track_links]
+        include_frontmatter_image = cfg[:include_frontmatter_image]
 
         renderer = JekyllPostRenderer.new(source_dir: Dir.pwd, picture_tag_preset: picture_tag_preset)
         rendered = nil
@@ -187,7 +192,7 @@ module JekyllListmonk
         end
 
         client = client_from_config
-        cfg = resolve_config
+        # cfg already resolved earlier
 
         name = cfg[:campaign_name].to_s
         name = rendered[:title].to_s if name.empty?
@@ -316,7 +321,12 @@ module JekyllListmonk
         tags: tags,
         subject: fetch.call(:subject, "LISTMONK_SUBJECT", "subject"),
         campaign_name: fetch.call(:campaign_name, "LISTMONK_CAMPAIGN_NAME", "campaign_name"),
-        campaign_type: fetch.call(:campaign_type, "LISTMONK_CAMPAIGN_TYPE", "campaign_type") || "regular"
+        campaign_type: fetch.call(:campaign_type, "LISTMONK_CAMPAIGN_TYPE", "campaign_type") || "regular",
+        upload_media: fetch.call(:upload_media, "LISTMONK_UPLOAD_MEDIA", "upload_media") == true,
+        format: fetch.call(:format, "LISTMONK_FORMAT", "format"),
+        picture_tag_preset: fetch.call(:picture_tag_preset, "LISTMONK_PICTURE_TAG_PRESET", "picture_tag_preset"),
+        track_links: fetch.call(:track_links, "LISTMONK_TRACK_LINKS", "track_links") == true,
+        include_frontmatter_image: fetch.call(:include_frontmatter_image, "LISTMONK_FRONTMATTER_IMAGE", "frontmatter_image") == true
       }
     end
 

@@ -50,6 +50,12 @@ listmonk:
   from_email: "me@example.com"
   from_name: "My Newsletter"
   # Other options: template_id, tags (array), campaign_type
+  # Feature flags:
+  # upload_media: true
+  # track_links: true
+  # frontmatter_image: true
+  # picture_tag_preset: "newsletter"
+  # format: "html"
 ```
 
 #### 2. Environment Variables (Secrets)
