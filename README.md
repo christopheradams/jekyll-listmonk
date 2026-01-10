@@ -100,8 +100,8 @@ Options:
 - `--template-id 123`
 - `--test-email EMAIL`: Send a test email immediately
 - `--track-links`: Append `@TrackLink` to URLs
-- `--upload-media`: Upload images in the post to Listmonk, and link them in the newsletter
-- `--frontmatter-image`: Inject frontmatter image at beginning of the newsletter 
+- `--upload-media`: Upload images in the post to Listmonk, and link them in the campaign smail
+- `--frontmatter-image`: Inject frontmatter image at beginning of the canpaign email 
 - `--picture-tag-preset PRESET`: Use specific picture tag preset
 - `--format html|markdown`: Output format (default: html)
 
