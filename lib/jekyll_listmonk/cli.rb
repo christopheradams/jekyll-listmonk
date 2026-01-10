@@ -21,7 +21,7 @@ module JekyllListmonk
 
     def run
       global = OptionParser.new do |o|
-        o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: preview, campaign, upload"
+        o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload"
         o.on("--picture-tag-preset PRESET", "Force Jekyll Picture Tag preset for rewritten `{% picture %}` tags") do |v|
           v = v.to_s.strip
           @picture_tag_preset = v.empty? ? nil : v
@@ -34,29 +34,22 @@ module JekyllListmonk
       global.parse!(@argv)
 
       cmd = @argv.shift
-      raise "Missing command (preview|campaign|upload)" if cmd.nil? || cmd.empty?
+      raise "Missing command (campaign|upload)" if cmd.nil? || cmd.empty?
 
       case cmd
-      when "preview"
-        post = @argv.shift
-        raise "Missing post identifier" if post.nil? || post.empty?
-
-        renderer = JekyllPostRenderer.new(source_dir: Dir.pwd, picture_tag_preset: @picture_tag_preset)
-        rendered = renderer.render_post_fragment!(post)
-        html = rendered[:html].to_s
-        html = rewrite_href_track_link(html) if @track_link
-
-        puts html
-        0
       when "campaign"
         upload_media = false
         format = "html"
+        dry_run = false
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
             upload_media = true
           end
           o.on("--format FORMAT", "Campaign format: html (default) or markdown") do |v|
             format = v.to_s.strip.downcase
+          end
+          o.on("--dry-run", "Render and print the campaign body, but do not upload media or create a campaign") do
+            dry_run = true
           end
         end
         campaign_opts.parse!(@argv)
@@ -68,7 +61,6 @@ module JekyllListmonk
         renderer = JekyllPostRenderer.new(source_dir: Dir.pwd, picture_tag_preset: @picture_tag_preset)
         rendered = nil
         html = nil
-        dry_run = ENV["DRY_RUN"].to_s == "1"
 
         if upload_media
           Dir.mktmpdir("jekyll-listmonk-site-") do |dest|
@@ -96,7 +88,7 @@ module JekyllListmonk
 
         if dry_run
           puts body
-          warn "DRY_RUN=1 set, not calling Listmonk."
+          warn "--dry-run set, not calling Listmonk."
           return 0
         end
 
@@ -157,7 +149,7 @@ module JekyllListmonk
         end
         0
       else
-        raise "Unknown command: #{cmd.inspect} (expected preview|campaign|upload)"
+        raise "Unknown command: #{cmd.inspect} (expected campaign|upload)"
       end
     end
 

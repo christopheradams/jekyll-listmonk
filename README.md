@@ -26,12 +26,6 @@ bundle install
 Run these commands from inside your Jekyll site repo (so the site's Bundler environment and plugins
 are available).
 
-Preview rendered HTML:
-
-```sh
-bundle exec jekyll-listmonk preview 2025-12-19-white-fungus-issue-18-dino
-```
-
 Upload a media file to Listmonk:
 
 ```sh
@@ -49,6 +43,12 @@ LISTMONK_USER="api_user" \
 LISTMONK_TOKEN="api_token" \
 LISTMONK_LIST_IDS="1" \
 bundle exec jekyll-listmonk campaign 2025-12-19-white-fungus-issue-18-dino
+```
+
+Dry run (render and print the campaign body without uploading media or creating a campaign):
+
+```sh
+bundle exec jekyll-listmonk campaign --dry-run 2025-12-19-white-fungus-issue-18-dino
 ```
 
 Create a campaign using Markdown instead of HTML:
@@ -89,7 +89,6 @@ Optional:
 - `LISTMONK_CAMPAIGN_TYPE` (defaults to `regular`)
 - `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`
 - `LISTMONK_TAGS` (comma-separated)
-- `DRY_RUN=1` (prints HTML and does not call the API)
 
 ### Jekyll-related CLI flags
 
