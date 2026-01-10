@@ -142,6 +142,14 @@ module JekyllListmonk
         track_links = cfg[:track_links]
         include_frontmatter_image = cfg[:include_frontmatter_image]
 
+        # Ignore picture_tag_preset if not uploading media, because we can't depend on the
+        # specific image derivative existing in the build unless we are building into a temp dir
+        # and checking file existence (which upload_media does).
+        if picture_tag_preset && !upload_media
+          warn "Warning: --picture-tag-preset is ignored when --upload-media is not set."
+          picture_tag_preset = nil
+        end
+
         renderer = JekyllPostRenderer.new(source_dir: Dir.pwd, picture_tag_preset: picture_tag_preset)
         rendered = nil
         html = nil

@@ -141,7 +141,7 @@ To ensure emails render correctly across clients, this gem automatically:
 
 2.  **Optimizes `{% picture %}` Tags**:
     *   **Strips Classes**: Removes CSS classes (like `--img class="..."`) that might break email layouts.
-    *   **Enforces Preset**: If you provide `--picture-tag-preset`, all picture tags are rewritten to use it (ensuring consistent sizing/formatting).
+    *   **Enforces Preset**: If you provide `--picture-tag-preset` (and `--upload-media` is on), all picture tags are rewritten to use it (ensuring consistent sizing/formatting).
     *   **Cleans Output**: Strips `srcset` and `sizes` attributes from the final HTML `<img>` tags, as these are poorly supported in email clients.
 
 ### Recommended Picture Preset
