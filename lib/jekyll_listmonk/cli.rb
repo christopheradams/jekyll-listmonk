@@ -47,12 +47,16 @@ module JekyllListmonk
         upload_media = false
         format = "html"
         dry_run = @dry_run
+        include_frontmatter_image = false
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
             upload_media = true
           end
           o.on("--format FORMAT", "Campaign format: html (default) or markdown") do |v|
             format = v.to_s.strip.downcase
+          end
+          o.on("--frontmatter-image", "Inject the post frontmatter `image` at the top of the body") do
+            include_frontmatter_image = true
           end
           # Allow `campaign --dry-run` for convenience.
           o.on("--dry-run", "Alias for global --dry-run") { dry_run = true }
@@ -69,7 +73,10 @@ module JekyllListmonk
 
         if upload_media
           Dir.mktmpdir("jekyll-listmonk-site-") do |dest|
-            rendered = renderer.render_post_fragment!(post, destination_dir: dest, inject_frontmatter_picture_tag: true)
+            rendered = renderer.render_post_fragment!(post,
+                                                      destination_dir: dest,
+                                                      inject_frontmatter_picture_tag: true,
+                                                      inject_frontmatter_image: include_frontmatter_image)
             html = rendered[:html].to_s
             unless dry_run
               client = ListmonkClient.from_env
@@ -82,7 +89,9 @@ module JekyllListmonk
           # If we are not uploading media, don't inject a `{% picture %}` tag for the
           # frontmatter image. Fall back to a plain Markdown image instead so the email
           # doesn't depend on picture-tag-generated derivatives existing in the site build.
-          rendered = renderer.render_post_fragment!(post, inject_frontmatter_picture_tag: false)
+          rendered = renderer.render_post_fragment!(post,
+                                                    inject_frontmatter_picture_tag: false,
+                                                    inject_frontmatter_image: include_frontmatter_image)
           html = rendered[:html].to_s
         end
         html = rewrite_href_track_link(html) if @track_link
