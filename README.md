@@ -5,8 +5,9 @@ production.**
 
 Create listmonk campaigns from Jekyll posts.
 
-This is designed to run **inside a target Jekyll site's Bundler environment** so the
-site's plugins (for example `jekyll_picture_tag`) are available.
+This gem helps you turn your Jekyll posts into beautiful newsletters by handling the heavy lifting of converting your site's content and assets for email compatibility.
+
+It runs within your existing Jekyll environment, meaning it automatically works with your site's plugins (like `jekyll_picture_tag`) to ensure your images and content look exactly how you expect.
 
 ## Install (in a target Jekyll repo)
 
