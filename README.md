@@ -30,26 +30,40 @@ Run these commands from inside your Jekyll site repo (so the site's Bundler envi
 
 ### Configuration
 
-You can configure Listmonk settings in your `_config.yml` (easiest) or via environment variables.
+You can configure Listmonk settings in your `_config.yml` (easiest for non-sensitive data) or via environment variables/`.env` file (recommended for secrets).
+
+**1. `_config.yml` (Non-sensitive defaults)**
 
 Add this to `_config.yml`:
 
 ```yaml
 listmonk:
   url: "https://list.example.com"
-  username: "api_user"
-  token: "api_token"
   list_ids: [1] # Default list IDs
   from_email: "me@example.com" # Optional
   from_name: "My Newsletter"   # Optional
 ```
 
-Or set environment variables:
+**2. Credentials (Secure)**
 
-- `LISTMONK_URL`
-- `LISTMONK_USER`
-- `LISTMONK_TOKEN`
-- `LISTMONK_LIST_IDS` (comma-separated)
+**Do not commit your username or password to `_config.yml`.** Instead, provide them via environment variables.
+
+You can create a `.env` file in your project root (ensure it is in your `.gitignore`):
+
+```env
+# .env
+LISTMONK_USER=api_user
+LISTMONK_TOKEN=api_token
+```
+
+Then add `gem "dotenv"` to your `Gemfile` (group `:development` is fine) and run `bundle install`. `jekyll-listmonk` will automatically load variables from `.env`.
+
+Alternatively, export them in your shell:
+
+```sh
+export LISTMONK_USER="api_user"
+export LISTMONK_TOKEN="api_token"
+```
 
 If required settings are missing, the CLI will prompt you for them interactively.
 

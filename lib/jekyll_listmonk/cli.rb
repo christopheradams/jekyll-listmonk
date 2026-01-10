@@ -19,6 +19,14 @@ module JekyllListmonk
     end
 
     def run
+      # Try to load dotenv for development convenience
+      begin
+        require "dotenv"
+        Dotenv.load
+      rescue LoadError
+        # dotenv not available, ignore
+      end
+
       global = OptionParser.new do |o|
         o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload, lists"
         o.on("--dry-run", "Render/print output but do not call Listmonk APIs") do
