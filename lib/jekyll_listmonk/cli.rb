@@ -17,6 +17,7 @@ module JekyllListmonk
       @argv = argv.dup
       @picture_tag_preset = nil
       @track_link = false
+      @dry_run = false
     end
 
     def run
@@ -28,6 +29,9 @@ module JekyllListmonk
         end
         o.on("--track_links", "Append @TrackLink to every eligible href URL") do
           @track_link = true
+        end
+        o.on("--dry-run", "Render/print output but do not call Listmonk APIs") do
+          @dry_run = true
         end
         o.on("-h", "--help", "Show help") { puts o; return 0 }
       end
@@ -42,7 +46,7 @@ module JekyllListmonk
       when "campaign"
         upload_media = false
         format = "html"
-        dry_run = false
+        dry_run = @dry_run
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
             upload_media = true
@@ -50,9 +54,8 @@ module JekyllListmonk
           o.on("--format FORMAT", "Campaign format: html (default) or markdown") do |v|
             format = v.to_s.strip.downcase
           end
-          o.on("--dry-run", "Render and print the campaign body, but do not upload media or create a campaign") do
-            dry_run = true
-          end
+          # Allow `campaign --dry-run` for convenience.
+          o.on("--dry-run", "Alias for global --dry-run") { dry_run = true }
         end
         campaign_opts.parse!(@argv)
         raise "Invalid --format #{format.inspect} (expected html|markdown)" unless %w[html markdown].include?(format)
@@ -136,6 +139,11 @@ module JekyllListmonk
       when "upload"
         path = @argv.shift
         raise "Missing file path" if path.nil? || path.empty?
+
+        if @dry_run
+          puts "DRY RUN: would upload #{path.inspect}"
+          return 0
+        end
 
         client = ListmonkClient.from_env
         res = client.upload_media!(path)
