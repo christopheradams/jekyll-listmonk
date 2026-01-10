@@ -153,8 +153,8 @@ If you use `jekyll_picture_tag`, add a dedicated "listmonk" preset to your `_dat
 presets:
   listmonk:
     formats: [jpg]
-    widths: [600]
-    fallback_width: 600
+    widths: [640]
+    fallback_width: 640
     markup: img
 ```
 
