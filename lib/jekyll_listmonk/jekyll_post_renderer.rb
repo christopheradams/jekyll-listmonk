@@ -31,7 +31,9 @@ module JekyllListmonk
       original_content = doc.content
 
       doc.data["layout"] = nil
-      picture_tag_available = Liquid::Template.tags.key?("picture")
+      # Liquid's tag registry varies across versions; prefer a tolerant lookup.
+      tags = Liquid::Template.tags
+      picture_tag_available = !!(tags.respond_to?(:[]) ? tags["picture"] : nil)
       picture_tag_available &&= inject_frontmatter_picture_tag
       doc.content = @rewriter.rewrite(original_content,
                                       frontmatter_image: doc.data["image"],
