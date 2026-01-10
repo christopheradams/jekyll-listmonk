@@ -100,6 +100,8 @@ Optional:
 
 - If a post's front matter has an `image` field, a `{% picture ... %}` tag is injected as
   the first line of content.
+- If the site does not have the Liquid `picture` tag available (for example, it is not using
+  `jekyll_picture_tag`), the injected frontmatter image falls back to a Markdown image (`![alt](url)`).
 - In-body `{% picture ... %}` tags have `--img class="..."` removed, and if
   `--picture-tag-preset` is provided, they are rewritten to use that preset.
 - Any resulting `srcset`/`sizes` attributes are stripped from `<img>` tags in the output.

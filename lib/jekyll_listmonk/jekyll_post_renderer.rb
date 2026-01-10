@@ -14,6 +14,7 @@ module JekyllListmonk
     # - a path like "_posts/2024-03-07-instructions-beyond-code.md"
     def render_post_fragment!(identifier, destination_dir: nil)
       require "jekyll"
+      require "liquid"
 
       previous_jekyll_env = ENV["JEKYLL_ENV"]
       ENV["JEKYLL_ENV"] = @jekyll_env
@@ -30,7 +31,10 @@ module JekyllListmonk
       original_content = doc.content
 
       doc.data["layout"] = nil
-      doc.content = @rewriter.rewrite(original_content, frontmatter_image: doc.data["image"])
+      picture_tag_available = Liquid::Template.tags.key?("picture")
+      doc.content = @rewriter.rewrite(original_content,
+                                      frontmatter_image: doc.data["image"],
+                                      picture_tag_available: picture_tag_available)
 
       renderer = Jekyll::Renderer.new(site, doc)
       html = renderer.run.to_s

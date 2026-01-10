@@ -5,9 +5,9 @@ module JekyllListmonk
       @preset = nil if @preset.nil? || @preset.empty?
     end
 
-    def rewrite(markdown, frontmatter_image:)
+    def rewrite(markdown, frontmatter_image:, picture_tag_available: true)
       content = markdown.to_s
-      content = inject_frontmatter_image_picture_tag(content, frontmatter_image)
+      content = inject_frontmatter_image(content, frontmatter_image, picture_tag_available: picture_tag_available)
       rewrite_picture_tags_for_newsletter(content)
     end
 
@@ -103,7 +103,7 @@ module JekyllListmonk
       tag
     end
 
-    def inject_frontmatter_image_picture_tag(markdown, image_field)
+    def inject_frontmatter_image(markdown, image_field, picture_tag_available:)
       content = markdown.to_s
 
       image_path, image_alt = extract_frontmatter_image(image_field)
@@ -111,16 +111,28 @@ module JekyllListmonk
 
       image_path = normalize_image_path(image_path)
 
-      tag = +"{% picture #{image_path}"
-      if image_alt && !image_alt.to_s.strip.empty?
-        tag << %( --alt "#{escape_liquid_double_quotes(one_line(image_alt))}")
-      end
-      tag << " %}\n"
+      injected =
+        if picture_tag_available
+          tag = +"{% picture #{image_path}"
+          if image_alt && !image_alt.to_s.strip.empty?
+            tag << %( --alt "#{escape_liquid_double_quotes(one_line(image_alt))}")
+          end
+          tag << " %}\n"
 
-      first_picture = first_picture_block(content)
-      return content if first_picture && first_picture.include?(image_path)
+          first_picture = first_picture_block(content)
+          return content if first_picture && first_picture.include?(image_path)
 
-      tag + "\n" + content
+          tag
+        else
+          first_img = first_markdown_image_line(content)
+          return content if first_img && first_img.include?(image_path)
+
+          alt = image_alt && !image_alt.to_s.strip.empty? ? escape_markdown_alt(one_line(image_alt)) : ""
+          url = escape_markdown_url(image_path)
+          "![#{alt}](#{url})\n"
+        end
+
+      injected + "\n" + content
     end
 
     def first_picture_block(markdown)
@@ -142,6 +154,16 @@ module JekyllListmonk
           break if block.include?("%}") || i >= lines.length
         end
         return block
+      end
+      nil
+    end
+
+    def first_markdown_image_line(markdown)
+      lines = markdown.to_s.lines
+      lines.each do |line|
+        next if line.strip.empty?
+        return line if line.lstrip.start_with?("![")
+        return nil
       end
       nil
     end
@@ -172,6 +194,19 @@ module JekyllListmonk
 
     def escape_liquid_double_quotes(s)
       s.to_s.gsub("\\", "\\\\").gsub('"', '\"')
+    end
+
+    def escape_markdown_alt(s)
+      s.to_s
+        .gsub("\\", "\\\\")
+        .gsub("]", "\\]")
+    end
+
+    def escape_markdown_url(s)
+      s.to_s
+        .gsub(" ", "%20")
+        .gsub("(", "\\(")
+        .gsub(")", "\\)")
     end
   end
 end
