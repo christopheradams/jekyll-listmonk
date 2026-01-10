@@ -1,6 +1,6 @@
 Gem::Specification.new do |spec|
   spec.name = "jekyll_listmonk"
-  spec.version = "0.2.2"
+  spec.version = "0.3.0"
   spec.authors = ["Christopher Adams"]
   spec.email = ["info@christopheradams.io"]
 
