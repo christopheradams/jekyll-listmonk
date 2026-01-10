@@ -79,7 +79,12 @@ module JekyllListmonk
                                                       inject_frontmatter_image: include_frontmatter_image)
             html = rendered[:html].to_s
             html = absolutize_img_srcs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
-            unless dry_run
+            if dry_run
+              html = rewrite_html_with_guessed_media_urls!(html, dest,
+                                                          listmonk_url: ENV.fetch("LISTMONK_URL"),
+                                                          baseurl: rendered[:baseurl].to_s,
+                                                          site_url: rendered[:site_url].to_s)
+            else
               client = ListmonkClient.from_env
               html = rewrite_html_with_uploaded_media!(html, dest, client: client,
                                                              baseurl: rendered[:baseurl].to_s,
@@ -283,6 +288,73 @@ module JekyllListmonk
 
         warn "Uploaded media id=#{id || "(unknown)"} src=#{src} url=#{url}"
         mapping[src] = url
+      end
+
+      rewrite_img_srcs(html, mapping)
+    end
+
+    def rewrite_html_with_guessed_media_urls!(html, destination_dir, listmonk_url:, baseurl:, site_url:)
+      srcs = extract_img_srcs(html)
+      warn "No <img src=...> found to rewrite." if srcs.empty?
+      return html if srcs.empty?
+
+      baseurl_norm = baseurl.to_s.strip
+      baseurl_norm = "" if baseurl_norm == "/"
+      baseurl_norm = "/#{baseurl_norm}" unless baseurl_norm.empty? || baseurl_norm.start_with?("/")
+      baseurl_norm = baseurl_norm.sub(%r{/\z}, "")
+
+      site_url_norm = site_url.to_s.strip.sub(%r{/\z}, "")
+      listmonk_base = listmonk_url.to_s.strip.sub(%r{/\z}, "")
+
+      mapping = {}
+      srcs.each do |src|
+        next if src.start_with?("data:")
+
+        path =
+          if src.start_with?("http://", "https://")
+            if !site_url_norm.empty? && (src.start_with?(site_url_norm + "/") || src == site_url_norm)
+              src.sub(site_url_norm, "")
+            else
+              next
+            end
+          elsif src.start_with?("//")
+            next
+          else
+            src.dup
+          end
+
+        path = path.split("#", 2).first
+        path = path.split("?", 2).first
+
+        if !baseurl_norm.empty? && path.start_with?(baseurl_norm + "/")
+          path = path.sub(baseurl_norm, "")
+        elsif path == baseurl_norm
+          next
+        end
+
+        fs_rel = path.to_s.sub(%r{\A/}, "")
+        next if fs_rel.empty?
+        fs_path = File.join(destination_dir.to_s, fs_rel)
+
+        # Prefer a .jpg/.jpeg variant if we generated one.
+        url_rel = fs_rel
+        if File.extname(fs_path).downcase == ".png"
+          jpg = fs_path.sub(/\.png\z/i, ".jpg")
+          jpeg = fs_path.sub(/\.png\z/i, ".jpeg")
+          if File.file?(jpg)
+            fs_path = jpg
+            url_rel = fs_rel.sub(/\.png\z/i, ".jpg")
+          elsif File.file?(jpeg)
+            fs_path = jpeg
+            url_rel = fs_rel.sub(/\.png\z/i, ".jpeg")
+          end
+        end
+
+        raise "Could not find local file for img src=#{src.inspect} (looked for #{fs_path})" unless File.file?(fs_path)
+
+        next if mapping.key?(src)
+        guessed = "#{listmonk_base}/upload/#{url_rel.sub(%r{\\A/}, "")}"
+        mapping[src] = guessed
       end
 
       rewrite_img_srcs(html, mapping)

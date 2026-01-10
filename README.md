@@ -61,6 +61,11 @@ Dry run (render and print the campaign body without uploading media or creating 
 bundle exec jekyll-listmonk campaign --dry-run 2025-12-19-white-fungus-issue-18-dino
 ```
 
+If you run `--dry-run` together with `--upload-media`, no uploads happen, but `<img src>` URLs are rewritten
+to a guessed location so you can preview the final body shape:
+
+- `LISTMONK_URL + "/upload/" + image_path`
+
 Create a campaign using Markdown instead of HTML:
 
 ```sh
