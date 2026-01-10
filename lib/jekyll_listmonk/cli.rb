@@ -19,13 +19,33 @@ module JekyllListmonk
     end
 
     def run
+      # Try to load dotenv for development convenience
+      begin
+        require "dotenv"
+        Dotenv.load
+      rescue LoadError
+        # dotenv not available, ignore
+      end
+
+      # Capture global options first
+      global_options = {}
       global = OptionParser.new do |o|
-        o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload"
+        o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload, lists"
         o.on("--dry-run", "Render/print output but do not call Listmonk APIs") do
-          @dry_run = true
+          global_options[:dry_run] = true
+        end
+        o.on("--url URL", "Listmonk URL") do |v|
+          global_options[:url] = v
+        end
+        o.on("--user USER", "Listmonk Username") do |v|
+          global_options[:user] = v
+        end
+        o.on("--token TOKEN", "Listmonk Token") do |v|
+          global_options[:token] = v
         end
         o.on("-h", "--help", "Show help") { puts o; return 0 }
       end
+      
       # Important: stop parsing at the subcommand so command-specific flags
       # (eg. `campaign --dry-run`) don't get treated as global options.
       global.order!(@argv)
@@ -33,39 +53,102 @@ module JekyllListmonk
       cmd = @argv.shift
       raise "Missing command (campaign|upload)" if cmd.nil? || cmd.empty?
 
+      # Store global options for later use in config resolution
+      @global_options = global_options
+      @dry_run = global_options[:dry_run]
+
       case cmd
+      when "lists"
+        client = client_from_config
+        res = client.get_lists
+        lists = res.dig("data", "results") || []
+        if lists.empty?
+          puts "No lists found."
+        else
+          puts "Available Lists:"
+          lists.each do |l|
+            puts "  [#{l['id']}] #{l['name']} (#{l['type']})"
+          end
+        end
+        0
       when "campaign"
-        upload_media = false
-        format = "html"
+        # dry_run can be set globally or per-command. Inherit global if set.
         dry_run = @dry_run
-        include_frontmatter_image = false
-        picture_tag_preset = nil
-        track_links = false
+        test_email = nil
+        
+        # Command-specific config overrides
+        cmd_config = {}
+
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
-            upload_media = true
+            cmd_config[:upload_media] = true
           end
           o.on("--format FORMAT", "Campaign format: html (default) or markdown") do |v|
-            format = v.to_s.strip.downcase
+             cmd_config[:format] = v.to_s.strip.downcase
           end
           o.on("--picture-tag-preset PRESET", "Force Jekyll Picture Tag preset for rewritten `{% picture %}` tags") do |v|
             v = v.to_s.strip
-            picture_tag_preset = v.empty? ? nil : v
+            cmd_config[:picture_tag_preset] = v.empty? ? nil : v
           end
           o.on("--track-links", "Append @TrackLink to every eligible href URL") do
-            track_links = true
+             cmd_config[:track_links] = true
           end
           o.on("--frontmatter-image", "Inject the post frontmatter `image` at the top of the body") do
-            include_frontmatter_image = true
+             cmd_config[:include_frontmatter_image] = true
+          end
+          o.on("--test-email EMAIL", "Send a test email to this address for the created campaign") do |v|
+            test_email = v.to_s.strip
+          end
+          o.on("--lists LIST_IDS", "Comma-separated list IDs") do |v|
+            cmd_config[:list_ids] = v.to_s.split(",").map(&:strip).reject(&:empty?).map(&:to_i)
+          end
+          o.on("--subject SUBJECT", "Campaign subject") do |v|
+            cmd_config[:subject] = v
+          end
+          o.on("--name NAME", "Campaign name") do |v|
+             cmd_config[:campaign_name] = v
+          end
+          o.on("--from-email EMAIL", "From email") do |v|
+            cmd_config[:from_email] = v
+          end
+          o.on("--from-name NAME", "From name") do |v|
+            cmd_config[:from_name] = v
+          end
+          o.on("--tags TAGS", "Comma-separated tags") do |v|
+            cmd_config[:tags] = v.to_s.split(",").map(&:strip).reject(&:empty?)
+          end
+          o.on("--template-id ID", "Template ID") do |v|
+             cmd_config[:template_id] = v.to_i
           end
           # Allow `campaign --dry-run` for convenience.
           o.on("--dry-run", "Alias for global --dry-run") { dry_run = true }
         end
         campaign_opts.parse!(@argv)
-        raise "Invalid --format #{format.inspect} (expected html|markdown)" unless %w[html markdown].include?(format)
+        if cmd_config[:format] && !%w[html markdown].include?(cmd_config[:format])
+          raise "Invalid --format #{cmd_config[:format].inspect} (expected html|markdown)"
+        end
+
+        # Merge command-specific config into global options for resolution
+        @cmd_config = cmd_config
+        cfg = resolve_config
 
         post = @argv.shift
         raise "Missing post identifier" if post.nil? || post.empty?
+        
+        # Load params from config
+        upload_media = cfg[:upload_media]
+        format = cfg[:format] || "html"
+        picture_tag_preset = cfg[:picture_tag_preset]
+        track_links = cfg[:track_links]
+        include_frontmatter_image = cfg[:include_frontmatter_image]
+
+        # Ignore picture_tag_preset if not uploading media, because we can't depend on the
+        # specific image derivative existing in the build unless we are building into a temp dir
+        # and checking file existence (which upload_media does).
+        if picture_tag_preset && !upload_media
+          warn "Warning: --picture-tag-preset is ignored when --upload-media is not set."
+          picture_tag_preset = nil
+        end
 
         renderer = JekyllPostRenderer.new(source_dir: Dir.pwd, picture_tag_preset: picture_tag_preset)
         rendered = nil
@@ -79,13 +162,14 @@ module JekyllListmonk
                                                       inject_frontmatter_image: include_frontmatter_image)
             html = rendered[:html].to_s
             html = absolutize_img_srcs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
+            html = absolutize_hrefs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
             if dry_run
               html = rewrite_html_with_guessed_media_urls!(html, dest,
-                                                          listmonk_url: ENV.fetch("LISTMONK_URL"),
+                                                          listmonk_url: resolve_config[:url],
                                                           baseurl: rendered[:baseurl].to_s,
                                                           site_url: rendered[:site_url].to_s)
             else
-              client = ListmonkClient.from_env
+              client = client_from_config
               html = rewrite_html_with_uploaded_media!(html, dest, client: client,
                                                              baseurl: rendered[:baseurl].to_s,
                                                              site_url: rendered[:site_url].to_s)
@@ -100,6 +184,7 @@ module JekyllListmonk
                                                     inject_frontmatter_image: include_frontmatter_image)
           html = rendered[:html].to_s
           html = absolutize_img_srcs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
+          html = absolutize_hrefs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
         end
         html = rewrite_href_track_link(html) if track_links
 
@@ -116,25 +201,30 @@ module JekyllListmonk
           return 0
         end
 
-        client = ListmonkClient.from_env
+        client = client_from_config
+        # cfg already resolved earlier
 
-        name = ENV["LISTMONK_CAMPAIGN_NAME"].to_s
+        name = cfg[:campaign_name].to_s
         name = rendered[:title].to_s if name.empty?
 
-        subject = ENV["LISTMONK_SUBJECT"].to_s
+        subject = cfg[:subject].to_s
         subject = rendered[:title].to_s if subject.empty?
 
-        list_ids = ENV.fetch("LISTMONK_LIST_IDS").split(",").map(&:strip).reject(&:empty?).map(&:to_i)
+        list_ids = cfg[:list_ids].map(&:to_i)
+        if list_ids.empty?
+          input = prompt_for("List IDs (comma separated)")
+          list_ids = input.to_s.split(",").map(&:strip).reject(&:empty?).map(&:to_i)
+        end
         raise "LISTMONK_LIST_IDS must contain at least one list id" if list_ids.empty?
 
-        type = ENV.fetch("LISTMONK_CAMPAIGN_TYPE", "regular")
+        type = cfg[:campaign_type]
 
-        template_id = ENV["LISTMONK_TEMPLATE_ID"]&.to_s&.strip
+        template_id = cfg[:template_id]&.to_s&.strip
         template_id = template_id.to_i if template_id && !template_id.empty?
 
-        from_email = ENV["LISTMONK_FROM_EMAIL"]
-        from_name = ENV["LISTMONK_FROM_NAME"]
-        tags = ENV["LISTMONK_TAGS"]&.split(",")&.map(&:strip)&.reject(&:empty?)
+        from_email = cfg[:from_email]
+        from_name = cfg[:from_name]
+        tags = cfg[:tags]
 
         res = client.create_campaign!(
           name: name,
@@ -151,6 +241,13 @@ module JekyllListmonk
 
         id = res.dig("data", "id") || res["id"]
         warn "Created Listmonk campaign id=#{id || "(unknown)"}"
+        
+        if test_email && id
+          warn "Sending test email to #{test_email}..."
+          client.test_campaign!(id, test_email)
+          warn "Test email sent."
+        end
+
         0
       when "upload"
         path = @argv.shift
@@ -161,7 +258,7 @@ module JekyllListmonk
           return 0
         end
 
-        client = ListmonkClient.from_env
+        client = client_from_config
         res = client.upload_media!(path)
 
         data = res["data"]
@@ -184,6 +281,91 @@ module JekyllListmonk
 
     private
 
+    def resolve_config
+      return @config if @config
+
+      # Try to load Jekyll config
+      begin
+        require "jekyll"
+        # Mute Jekyll's output
+        Jekyll.logger.log_level = :error
+        site_config = Jekyll.configuration({}) rescue {}
+        lm_config = site_config["listmonk"] || {}
+      rescue LoadError
+        lm_config = {}
+      end
+
+      @global_options ||= {}
+      @cmd_config ||= {}
+
+      # Helper to merge: flag > env > config
+      fetch = ->(flag_key, env_key, config_key) {
+        val = @global_options[flag_key] || @cmd_config[flag_key]
+        return val unless val.nil?
+
+        ENV[env_key] || lm_config[config_key]
+      }
+
+      list_ids = fetch.call(:list_ids, "LISTMONK_LIST_IDS", "list_ids")
+      if list_ids.is_a?(String)
+        list_ids = list_ids.split(",").map(&:strip).reject(&:empty?)
+      end
+      # ensure array
+      list_ids = Array(list_ids)
+
+      tags = fetch.call(:tags, "LISTMONK_TAGS", "tags")
+      if tags.is_a?(String)
+        tags = tags.split(",").map(&:strip).reject(&:empty?)
+      end
+      tags = Array(tags)
+
+      @config = {
+        url: fetch.call(:url, "LISTMONK_URL", "url"),
+        user: fetch.call(:user, "LISTMONK_USER", "username"),
+        token: fetch.call(:token, "LISTMONK_TOKEN", "token"),
+        list_ids: list_ids,
+        auth_mode: fetch.call(nil, "LISTMONK_AUTH_MODE", "auth_mode"),
+        template_id: fetch.call(:template_id, "LISTMONK_TEMPLATE_ID", "template_id"),
+        from_email: fetch.call(:from_email, "LISTMONK_FROM_EMAIL", "from_email"),
+        from_name: fetch.call(:from_name, "LISTMONK_FROM_NAME", "from_name"),
+        tags: tags,
+        subject: fetch.call(:subject, "LISTMONK_SUBJECT", "subject"),
+        campaign_name: fetch.call(:campaign_name, "LISTMONK_CAMPAIGN_NAME", "campaign_name"),
+        campaign_type: fetch.call(:campaign_type, "LISTMONK_CAMPAIGN_TYPE", "campaign_type") || "regular",
+        upload_media: fetch.call(:upload_media, "LISTMONK_UPLOAD_MEDIA", "upload_media") == true,
+        format: fetch.call(:format, "LISTMONK_FORMAT", "format"),
+        picture_tag_preset: fetch.call(:picture_tag_preset, "LISTMONK_PICTURE_TAG_PRESET", "picture_tag_preset"),
+        track_links: fetch.call(:track_links, "LISTMONK_TRACK_LINKS", "track_links") == true,
+        include_frontmatter_image: fetch.call(:include_frontmatter_image, "LISTMONK_FRONTMATTER_IMAGE", "frontmatter_image") == true
+      }
+    end
+
+    def client_from_config
+      cfg = resolve_config
+      if cfg[:url].to_s.empty?
+        cfg[:url] = prompt_for("Listmonk URL")
+      end
+      if cfg[:user].to_s.empty?
+        cfg[:user] = prompt_for("Listmonk Username")
+      end
+      if cfg[:token].to_s.empty?
+        cfg[:token] = prompt_for("Listmonk Token/Password")
+      end
+
+      raise "Missing configuration: LISTMONK_URL / listmonk.url" if cfg[:url].to_s.empty?
+      raise "Missing configuration: LISTMONK_USER / listmonk.username" if cfg[:user].to_s.empty?
+      raise "Missing configuration: LISTMONK_TOKEN / listmonk.token" if cfg[:token].to_s.empty?
+
+      use_token_header = cfg[:auth_mode].to_s.downcase == "header"
+      ListmonkClient.new(base_url: cfg[:url], username: cfg[:user], token: cfg[:token], use_token_header: use_token_header)
+    end
+
+    def prompt_for(label, default: nil)
+      print "#{label}#{default ? " [#{default}]" : ""}: "
+      val = $stdin.gets.to_s.strip
+      val.empty? ? default : val
+    end
+
     def absolutize_img_srcs(html, site_url:, baseurl:)
       site = site_url.to_s.strip.sub(%r{/\z}, "")
       return html.to_s if site.empty?
@@ -202,6 +384,42 @@ module JekyllListmonk
         path, query = path.split("?", 2)
 
         if path.empty? || path.start_with?("http://", "https://", "data:", "//")
+          %(#{prefix}"#{raw}")
+        else
+          abs_path = path.start_with?("/") ? path : "#{base}/#{path}"
+          abs_path = "/#{abs_path}" unless abs_path.start_with?("/")
+
+          if !base.empty? && !abs_path.start_with?(base + "/") && abs_path != base
+            abs_path = base + abs_path
+          end
+
+          out = site + abs_path
+          out += "?#{query}" if query && !query.empty?
+          out += "##{frag}" if frag && !frag.empty?
+          %(#{prefix}"#{out}")
+        end
+      end
+    end
+
+    def absolutize_hrefs(html, site_url:, baseurl:)
+      site = site_url.to_s.strip.sub(%r{/\z}, "")
+      return html.to_s if site.empty?
+
+      base = baseurl.to_s.strip
+      base = "" if base == "/"
+      base = "/#{base}" unless base.empty? || base.start_with?("/")
+      base = base.sub(%r{/\z}, "")
+
+      html.to_s.gsub(/(<a\b[^>]*\bhref=)(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i) do
+        prefix = Regexp.last_match(1)
+        raw = (Regexp.last_match(2) || Regexp.last_match(3) || Regexp.last_match(4) || "").to_s
+
+        # Preserve query/fragment while normalizing the path portion.
+        path, frag = raw.split("#", 2)
+        path, query = path.split("?", 2)
+
+        if path.empty? || path.start_with?("http://", "https://", "data:", "//", "mailto:", "tel:", "sms:", "javascript:")
+          # Already absolute or special protocol
           %(#{prefix}"#{raw}")
         else
           abs_path = path.start_with?("/") ? path : "#{base}/#{path}"
