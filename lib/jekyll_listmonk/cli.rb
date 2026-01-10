@@ -337,23 +337,23 @@ module JekyllListmonk
         fs_path = File.join(destination_dir.to_s, fs_rel)
 
         # Prefer a .jpg/.jpeg variant if we generated one.
-        url_rel = fs_rel
         if File.extname(fs_path).downcase == ".png"
           jpg = fs_path.sub(/\.png\z/i, ".jpg")
           jpeg = fs_path.sub(/\.png\z/i, ".jpeg")
           if File.file?(jpg)
             fs_path = jpg
-            url_rel = fs_rel.sub(/\.png\z/i, ".jpg")
           elsif File.file?(jpeg)
             fs_path = jpeg
-            url_rel = fs_rel.sub(/\.png\z/i, ".jpeg")
           end
         end
 
         raise "Could not find local file for img src=#{src.inspect} (looked for #{fs_path})" unless File.file?(fs_path)
 
         next if mapping.key?(src)
-        guessed = "#{listmonk_base}/upload/#{url_rel.sub(%r{\\A/}, "")}"
+        # The final Listmonk media URL does not include the local site path; it uses
+        # the uploaded file's name.
+        guessed_filename = File.basename(fs_path.to_s)
+        guessed = "#{listmonk_base}/upload/#{guessed_filename}"
         mapping[src] = guessed
       end
 
