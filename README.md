@@ -90,3 +90,19 @@ Optional:
 
 If you pass `--picture-tag-preset`, the target site must define that preset in `_data/picture.yml`.
 
+### Recommended picture preset
+
+Install `jekyll_picture_tag` with your jekyll plugins.
+
+Add this preset to `_data/picture.yml`, and call the campaign command
+with the option `--picture-tag-preset newsletter`.
+
+```
+# _data/picture.yml
+presets:
+  newsletter:
+    formats: [jpg]
+    widths: [640]
+    fallback_width: 640
+    markup: img
+``
