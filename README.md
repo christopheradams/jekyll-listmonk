@@ -31,44 +31,47 @@ Run these commands from inside your Jekyll site repo (so the site's Bundler envi
 
 ### Configuration
 
-You can configure Listmonk settings in your `_config.yml` (easiest for non-sensitive data) or via environment variables/`.env` file (recommended for secrets).
+Configuration is loaded in this order of precedence:
+1. **CLI Flags** (e.g., `--url`, `--lists`)
+2. **Environment Variables** (e.g., `LISTMONK_URL`, `LISTMONK_LIST_IDS`)
+3. **`_config.yml`** (under `listmonk:` key)
 
-**1. `_config.yml` (Non-sensitive defaults)**
+**Recommendation:**
 
-Add this to `_config.yml`:
+*   **Secrets** (Username, Token): Use **Environment Variables** (via `.env` or shell export).
+*   **Defaults** (URL, Lists, From Email): Use **`_config.yml`**.
+
+#### 1. _config.yml (Defaults)
 
 ```yaml
 listmonk:
   url: "https://list.example.com"
-  list_ids: [1] # Default list IDs
-  from_email: "me@example.com" # Optional
-  from_name: "My Newsletter"   # Optional
+  list_ids: [1]
+  from_email: "me@example.com"
+  from_name: "My Newsletter"
+  # Other options: template_id, tags (array), campaign_type
 ```
 
-**2. Credentials (Secure)**
+#### 2. Environment Variables (Secrets)
 
-**Do not commit your username or password to `_config.yml`.** Instead, provide them via environment variables.
-
-You can create a `.env` file in your project root (ensure it is in your `.gitignore`):
+Do not commit these to git. Use a `.env` file (gitignored) or export them in your shell.
 
 ```env
-# .env
 LISTMONK_USER=api_user
 LISTMONK_TOKEN=api_token
 ```
 
-Then add `gem "dotenv"` to your `Gemfile` (group `:development` is fine) and run `bundle install`. `jekyll-listmonk` will automatically load variables from `.env`.
-
-Alternatively, export them in your shell:
-
-```sh
-export LISTMONK_USER="api_user"
-export LISTMONK_TOKEN="api_token"
-```
-
-If required settings are missing, the CLI will prompt you for them interactively.
+Supported variables: `LISTMONK_URL`, `LISTMONK_USER`, `LISTMONK_TOKEN`, `LISTMONK_LIST_IDS`, `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`, `LISTMONK_TEMPLATE_ID`, `LISTMONK_TAGS`, `LISTMONK_SUBJECT`, `LISTMONK_CAMPAIGN_NAME`, `LISTMONK_CAMPAIGN_TYPE`, `LISTMONK_AUTH_MODE`.
 
 ### Commands
+
+**Global Flags:**
+
+All commands support these flags to override config/env:
+- `--url URL`
+- `--user USER`
+- `--token TOKEN`
+- `--dry-run`: Don't call API
 
 **1. Check available lists**
 
@@ -79,51 +82,48 @@ bundle exec jekyll-listmonk lists
 **2. Create a campaign**
 
 ```sh
-bundle exec jekyll-listmonk campaign 2025-12-19-white-fungus-issue-18-dino
+bundle exec jekyll-listmonk campaign <POST_ID_OR_SLUG> [options]
 ```
 
-**3. Send a test email**
+Options:
+- `--lists 1,2`: Comma-separated list IDs
+- `--subject "..."`: Override subject (default: post title)
+- `--name "..."`: Override campaign name
+- `--from-email "..."` / `--from-name "..."`
+- `--tags "tag1,tag2"`
+- `--template-id 123`
+- `--test-email EMAIL`: Send a test email immediately
+- `--track-links`: Append `@TrackLink` to URLs
+- `--upload-media`: Upload images to Listmonk
+- `--frontmatter-image`: Inject frontmatter image
+- `--picture-tag-preset PRESET`: Use specific picture tag preset
+- `--format html|markdown`: Output format (default: html)
 
-Create a campaign and immediately send a test email to check rendering:
-
-```sh
-bundle exec jekyll-listmonk campaign my-post --test-email me@example.com
-```
-
-**4. Upload a media file**
+**3. Upload a media file**
 
 ```sh
 bundle exec jekyll-listmonk upload /path/to/image.jpg
 ```
 
-### Campaign CLI flags
+### Example Workflow
 
-- `--test-email EMAIL`: Sends a test email to this address for the created campaign.
-- `--picture-tag-preset PRESET`: rewrites `{% picture %}` tags to use this preset. If omitted, does not add/override presets (so Jekyll Picture Tag uses the site's default).
-- `--track-links`: appends `@TrackLink` to eligible `<a href="...">` URLs in the final HTML (useful for Listmonk link tracking).
-- `--frontmatter-image`: injects the post frontmatter `image` at the top of the body.
-- `--upload-media`: uploads referenced images to Listmonk media and rewrites `<img src>` to the returned `data.url`.
-- `--format html|markdown`: sets the campaign `content_type` and body format.
-- `--dry-run`: prints the final body and does not call Listmonk APIs. If used together with `--upload-media`, no uploads happen but `<img src>` URLs are rewritten to a guessed location: `LISTMONK_URL + "/uploads/" + image_filename`.
+1.  **Configure defaults** in `_config.yml`:
+    ```yaml
+    listmonk:
+      url: "https://newsletter.mysite.com"
+      list_ids: [5]
+    ```
 
-### Environment variables (Reference)
+2.  **Set secrets** in `.env`:
+    ```env
+    LISTMONK_USER=admin
+    LISTMONK_TOKEN=my-secret-token
+    ```
 
-Most of these can be set in `_config.yml` under the `listmonk:` key.
-
-Required:
-- `LISTMONK_URL`
-- `LISTMONK_USER`
-- `LISTMONK_TOKEN`
-
-Optional:
-- `LISTMONK_LIST_IDS`
-- `LISTMONK_AUTH_MODE=header` (send `Authorization: token user:token` instead of Basic auth)
-- `LISTMONK_TEMPLATE_ID`
-- `LISTMONK_SUBJECT` (defaults to post title)
-- `LISTMONK_CAMPAIGN_NAME` (defaults to post title)
-- `LISTMONK_CAMPAIGN_TYPE` (defaults to `regular`)
-- `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`
-- `LISTMONK_TAGS` (comma-separated)
+3.  **Run:**
+    ```sh
+    bundle exec jekyll-listmonk campaign my-latest-post
+    ```
 
 ## Image behavior
 

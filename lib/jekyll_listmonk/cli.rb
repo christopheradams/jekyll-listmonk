@@ -27,19 +27,35 @@ module JekyllListmonk
         # dotenv not available, ignore
       end
 
+      # Capture global options first
+      global_options = {}
       global = OptionParser.new do |o|
         o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload, lists"
         o.on("--dry-run", "Render/print output but do not call Listmonk APIs") do
-          @dry_run = true
+          global_options[:dry_run] = true
+        end
+        o.on("--url URL", "Listmonk URL") do |v|
+          global_options[:url] = v
+        end
+        o.on("--user USER", "Listmonk Username") do |v|
+          global_options[:user] = v
+        end
+        o.on("--token TOKEN", "Listmonk Token") do |v|
+          global_options[:token] = v
         end
         o.on("-h", "--help", "Show help") { puts o; return 0 }
       end
+      
       # Important: stop parsing at the subcommand so command-specific flags
       # (eg. `campaign --dry-run`) don't get treated as global options.
       global.order!(@argv)
 
       cmd = @argv.shift
       raise "Missing command (campaign|upload)" if cmd.nil? || cmd.empty?
+
+      # Store global options for later use in config resolution
+      @global_options = global_options
+      @dry_run = global_options[:dry_run]
 
       case cmd
       when "lists"
@@ -58,11 +74,16 @@ module JekyllListmonk
       when "campaign"
         upload_media = false
         format = "html"
+        # dry_run can be set globally or per-command. Inherit global if set.
         dry_run = @dry_run
         include_frontmatter_image = false
         picture_tag_preset = nil
         track_links = false
         test_email = nil
+        
+        # Command-specific config overrides
+        cmd_config = {}
+
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
             upload_media = true
@@ -83,11 +104,35 @@ module JekyllListmonk
           o.on("--test-email EMAIL", "Send a test email to this address for the created campaign") do |v|
             test_email = v.to_s.strip
           end
+          o.on("--lists LIST_IDS", "Comma-separated list IDs") do |v|
+            cmd_config[:list_ids] = v.to_s.split(",").map(&:strip).reject(&:empty?).map(&:to_i)
+          end
+          o.on("--subject SUBJECT", "Campaign subject") do |v|
+            cmd_config[:subject] = v
+          end
+          o.on("--name NAME", "Campaign name") do |v|
+             cmd_config[:campaign_name] = v
+          end
+          o.on("--from-email EMAIL", "From email") do |v|
+            cmd_config[:from_email] = v
+          end
+          o.on("--from-name NAME", "From name") do |v|
+            cmd_config[:from_name] = v
+          end
+          o.on("--tags TAGS", "Comma-separated tags") do |v|
+            cmd_config[:tags] = v.to_s.split(",").map(&:strip).reject(&:empty?)
+          end
+          o.on("--template-id ID", "Template ID") do |v|
+             cmd_config[:template_id] = v.to_i
+          end
           # Allow `campaign --dry-run` for convenience.
           o.on("--dry-run", "Alias for global --dry-run") { dry_run = true }
         end
         campaign_opts.parse!(@argv)
         raise "Invalid --format #{format.inspect} (expected html|markdown)" unless %w[html markdown].include?(format)
+
+        # Merge command-specific config into global options for resolution
+        @cmd_config = cmd_config
 
         post = @argv.shift
         raise "Missing post identifier" if post.nil? || post.empty?
@@ -235,35 +280,43 @@ module JekyllListmonk
         lm_config = {}
       end
 
-      # Helper to merge ENV and config, preferring ENV
-      fetch = ->(env_key, config_key) { ENV[env_key] || lm_config[config_key] }
+      @global_options ||= {}
+      @cmd_config ||= {}
 
-      list_ids = fetch.call("LISTMONK_LIST_IDS", "list_ids")
+      # Helper to merge: flag > env > config
+      fetch = ->(flag_key, env_key, config_key) {
+        val = @global_options[flag_key] || @cmd_config[flag_key]
+        return val unless val.nil?
+
+        ENV[env_key] || lm_config[config_key]
+      }
+
+      list_ids = fetch.call(:list_ids, "LISTMONK_LIST_IDS", "list_ids")
       if list_ids.is_a?(String)
         list_ids = list_ids.split(",").map(&:strip).reject(&:empty?)
       end
       # ensure array
       list_ids = Array(list_ids)
 
-      tags = fetch.call("LISTMONK_TAGS", "tags")
+      tags = fetch.call(:tags, "LISTMONK_TAGS", "tags")
       if tags.is_a?(String)
         tags = tags.split(",").map(&:strip).reject(&:empty?)
       end
       tags = Array(tags)
 
       @config = {
-        url: fetch.call("LISTMONK_URL", "url"),
-        user: fetch.call("LISTMONK_USER", "username"),
-        token: fetch.call("LISTMONK_TOKEN", "token"),
+        url: fetch.call(:url, "LISTMONK_URL", "url"),
+        user: fetch.call(:user, "LISTMONK_USER", "username"),
+        token: fetch.call(:token, "LISTMONK_TOKEN", "token"),
         list_ids: list_ids,
-        auth_mode: fetch.call("LISTMONK_AUTH_MODE", "auth_mode"),
-        template_id: fetch.call("LISTMONK_TEMPLATE_ID", "template_id"),
-        from_email: fetch.call("LISTMONK_FROM_EMAIL", "from_email"),
-        from_name: fetch.call("LISTMONK_FROM_NAME", "from_name"),
+        auth_mode: fetch.call(nil, "LISTMONK_AUTH_MODE", "auth_mode"),
+        template_id: fetch.call(:template_id, "LISTMONK_TEMPLATE_ID", "template_id"),
+        from_email: fetch.call(:from_email, "LISTMONK_FROM_EMAIL", "from_email"),
+        from_name: fetch.call(:from_name, "LISTMONK_FROM_NAME", "from_name"),
         tags: tags,
-        subject: fetch.call("LISTMONK_SUBJECT", "subject"),
-        campaign_name: fetch.call("LISTMONK_CAMPAIGN_NAME", "campaign_name"),
-        campaign_type: fetch.call("LISTMONK_CAMPAIGN_TYPE", "campaign_type") || "regular"
+        subject: fetch.call(:subject, "LISTMONK_SUBJECT", "subject"),
+        campaign_name: fetch.call(:campaign_name, "LISTMONK_CAMPAIGN_NAME", "campaign_name"),
+        campaign_type: fetch.call(:campaign_type, "LISTMONK_CAMPAIGN_TYPE", "campaign_type") || "regular"
       }
     end
 
