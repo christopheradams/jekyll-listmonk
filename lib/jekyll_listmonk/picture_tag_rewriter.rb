@@ -12,6 +12,11 @@ module JekyllListmonk
     end
 
     def strip_responsive_img_attributes(html)
+      # 1. remove srcset/sizes
+      # 2. if <img src> is empty but we have a data-src or original source, try to recover it?
+      #    Actually, jekyll_picture_tag with `markup: img` usually outputs a `src`.
+      #    But if it output a `srcset` and `src` is the small version, we might want the largest?
+      #    For now, we trust that the preset is configured with a single width/format so `src` is correct.
       html.to_s
         .gsub(/\s+srcset=(\"[^\"]*\"|'[^']*')/, "")
         .gsub(/\s+sizes=(\"[^\"]*\"|'[^']*')/, "")
