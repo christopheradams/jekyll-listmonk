@@ -31,7 +31,9 @@ module JekyllListmonk
         end
         o.on("-h", "--help", "Show help") { puts o; return 0 }
       end
-      global.parse!(@argv)
+      # Important: stop parsing at the subcommand so command-specific flags
+      # (eg. `campaign --dry-run`) don't get treated as global options.
+      global.order!(@argv)
 
       cmd = @argv.shift
       raise "Missing command (campaign|upload)" if cmd.nil? || cmd.empty?
