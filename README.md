@@ -54,7 +54,7 @@ listmonk:
   # upload_media: true
   # track_links: true
   # frontmatter_image: true
-  # picture_tag_preset: "newsletter"
+  # picture_tag_preset: "listmonk"
   # format: "html"
 ```
 
@@ -146,12 +146,12 @@ To ensure emails render correctly across clients, this gem automatically:
 
 ### Recommended Picture Preset
 
-If you use `jekyll_picture_tag`, add a dedicated "newsletter" preset to your `_data/picture.yml`. This ensures images are generated at a fixed width suitable for email.
+If you use `jekyll_picture_tag`, add a dedicated "listmonk" preset to your `_data/picture.yml`. This ensures images are generated at a fixed width suitable for email.
 
 ```yaml
 # _data/picture.yml
 presets:
-  newsletter:
+  listmonk:
     formats: [jpg]
     widths: [600]
     fallback_width: 600
@@ -162,5 +162,5 @@ Then configure it in `_config.yml`:
 
 ```yaml
 listmonk:
-  picture_tag_preset: "newsletter"
+  picture_tag_preset: "listmonk"
 ```
