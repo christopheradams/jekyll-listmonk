@@ -45,47 +45,6 @@ LISTMONK_LIST_IDS="1" \
 bundle exec jekyll-listmonk campaign 2025-12-19-white-fungus-issue-18-dino
 ```
 
-Create a campaign and inject the post's frontmatter `image` at the top:
-
-```sh
-LISTMONK_URL="https://list.example.com" \
-LISTMONK_USER="api_user" \
-LISTMONK_TOKEN="api_token" \
-LISTMONK_LIST_IDS="1" \
-bundle exec jekyll-listmonk campaign --frontmatter-image 2025-12-19-white-fungus-issue-18-dino
-```
-
-Dry run (render and print the campaign body without uploading media or creating a campaign):
-
-```sh
-bundle exec jekyll-listmonk campaign --dry-run 2025-12-19-white-fungus-issue-18-dino
-```
-
-If you run `--dry-run` together with `--upload-media`, no uploads happen, but `<img src>` URLs are rewritten
-to a guessed location so you can preview the final body shape:
-
-- `LISTMONK_URL + "/upload/" + image_path`
-
-Create a campaign using Markdown instead of HTML:
-
-```sh
-LISTMONK_URL="https://list.example.com" \
-LISTMONK_USER="api_user" \
-LISTMONK_TOKEN="api_token" \
-LISTMONK_LIST_IDS="1" \
-bundle exec jekyll-listmonk campaign --format markdown 2025-12-19-white-fungus-issue-18-dino
-```
-
-Create a campaign and upload referenced images to Listmonk media (rewriting `<img src>` URLs in the HTML):
-
-```sh
-LISTMONK_URL="https://list.example.com" \
-LISTMONK_USER="api_user" \
-LISTMONK_TOKEN="api_token" \
-LISTMONK_LIST_IDS="1" \
-bundle exec jekyll-listmonk campaign --upload-media 2025-12-19-white-fungus-issue-18-dino
-```
-
 ### Environment variables
 
 Required:
@@ -112,7 +71,7 @@ Optional:
 - `--frontmatter-image`: injects the post frontmatter `image` at the top of the body.
 - `--upload-media`: uploads referenced images to Listmonk media and rewrites `<img src>` to the returned `data.url`.
 - `--format html|markdown`: sets the campaign `content_type` and body format.
-- `--dry-run`: prints the final body and does not call Listmonk APIs.
+- `--dry-run`: prints the final body and does not call Listmonk APIs. If used together with `--upload-media`, no uploads happen but `<img src>` URLs are rewritten to a guessed location: `LISTMONK_URL + "/upload/" + image_path`.
 
 ## Image behavior
 
