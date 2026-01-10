@@ -71,7 +71,7 @@ Optional:
 - `--frontmatter-image`: injects the post frontmatter `image` at the top of the body.
 - `--upload-media`: uploads referenced images to Listmonk media and rewrites `<img src>` to the returned `data.url`.
 - `--format html|markdown`: sets the campaign `content_type` and body format.
-- `--dry-run`: prints the final body and does not call Listmonk APIs. If used together with `--upload-media`, no uploads happen but `<img src>` URLs are rewritten to a guessed location: `LISTMONK_URL + "/upload/" + image_filename`.
+- `--dry-run`: prints the final body and does not call Listmonk APIs. If used together with `--upload-media`, no uploads happen but `<img src>` URLs are rewritten to a guessed location: `LISTMONK_URL + "/uploads/" + image_filename`.
 
 ## Image behavior
 

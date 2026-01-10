@@ -353,7 +353,7 @@ module JekyllListmonk
         # The final Listmonk media URL does not include the local site path; it uses
         # the uploaded file's name.
         guessed_filename = File.basename(fs_path.to_s)
-        guessed = "#{listmonk_base}/upload/#{guessed_filename}"
+        guessed = "#{listmonk_base}/uploads/#{guessed_filename}"
         mapping[src] = guessed
       end
 
