@@ -78,6 +78,7 @@ module JekyllListmonk
                                                       inject_frontmatter_picture_tag: true,
                                                       inject_frontmatter_image: include_frontmatter_image)
             html = rendered[:html].to_s
+            html = absolutize_img_srcs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
             unless dry_run
               client = ListmonkClient.from_env
               html = rewrite_html_with_uploaded_media!(html, dest, client: client,
@@ -93,6 +94,7 @@ module JekyllListmonk
                                                     inject_frontmatter_picture_tag: false,
                                                     inject_frontmatter_image: include_frontmatter_image)
           html = rendered[:html].to_s
+          html = absolutize_img_srcs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
         end
         html = rewrite_href_track_link(html) if @track_link
 
@@ -176,6 +178,41 @@ module JekyllListmonk
     end
 
     private
+
+    def absolutize_img_srcs(html, site_url:, baseurl:)
+      site = site_url.to_s.strip.sub(%r{/\z}, "")
+      return html.to_s if site.empty?
+
+      base = baseurl.to_s.strip
+      base = "" if base == "/"
+      base = "/#{base}" unless base.empty? || base.start_with?("/")
+      base = base.sub(%r{/\z}, "")
+
+      html.to_s.gsub(/(<img\b[^>]*\bsrc=)(?:"([^"]+)"|'([^']+)'|([^\s>]+))/i) do
+        prefix = Regexp.last_match(1)
+        raw = (Regexp.last_match(2) || Regexp.last_match(3) || Regexp.last_match(4) || "").to_s
+
+        # Preserve query/fragment while normalizing the path portion.
+        path, frag = raw.split("#", 2)
+        path, query = path.split("?", 2)
+
+        if path.empty? || path.start_with?("http://", "https://", "data:", "//")
+          %(#{prefix}"#{raw}")
+        else
+          abs_path = path.start_with?("/") ? path : "#{base}/#{path}"
+          abs_path = "/#{abs_path}" unless abs_path.start_with?("/")
+
+          if !base.empty? && !abs_path.start_with?(base + "/") && abs_path != base
+            abs_path = base + abs_path
+          end
+
+          out = site + abs_path
+          out += "?#{query}" if query && !query.empty?
+          out += "##{frag}" if frag && !frag.empty?
+          %(#{prefix}"#{out}")
+        end
+      end
+    end
 
     def rewrite_html_with_uploaded_media!(html, destination_dir, client:, baseurl:, site_url:)
       srcs = extract_img_srcs(html)
