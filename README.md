@@ -47,8 +47,8 @@ Configuration is loaded in this order of precedence:
 listmonk:
   url: "https://list.example.com"
   list_ids: [1]
-  from_email: "me@example.com"
-  from_name: "My Newsletter"
+  from_email: "me@example.com" # optional
+  from_name: "My Newsletter" # optional
   # Other options: template_id, tags (array), campaign_type
   # Feature flags:
   # upload_media: true
