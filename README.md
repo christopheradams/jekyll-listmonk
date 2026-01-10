@@ -26,39 +26,82 @@ bundle install
 
 ## Usage
 
-Run these commands from inside your Jekyll site repo (so the site's Bundler environment and plugins
-are available).
+Run these commands from inside your Jekyll site repo (so the site's Bundler environment and plugins are available).
 
-Upload a media file to Listmonk:
+### Configuration
 
-```sh
-LISTMONK_URL="https://list.example.com" \
-LISTMONK_USER="api_user" \
-LISTMONK_TOKEN="api_token" \
-bundle exec jekyll-listmonk upload /path/to/image.jpg
+You can configure Listmonk settings in your `_config.yml` (easiest) or via environment variables.
+
+Add this to `_config.yml`:
+
+```yaml
+listmonk:
+  url: "https://list.example.com"
+  username: "api_user"
+  token: "api_token"
+  list_ids: [1] # Default list IDs
+  from_email: "me@example.com" # Optional
+  from_name: "My Newsletter"   # Optional
 ```
 
-Create a campaign:
-
-```sh
-LISTMONK_URL="https://list.example.com" \
-LISTMONK_USER="api_user" \
-LISTMONK_TOKEN="api_token" \
-LISTMONK_LIST_IDS="1" \
-bundle exec jekyll-listmonk campaign 2025-12-19-white-fungus-issue-18-dino
-```
-
-### Environment variables
-
-Required:
+Or set environment variables:
 
 - `LISTMONK_URL`
 - `LISTMONK_USER`
 - `LISTMONK_TOKEN`
 - `LISTMONK_LIST_IDS` (comma-separated)
 
-Optional:
+If required settings are missing, the CLI will prompt you for them interactively.
 
+### Commands
+
+**1. Check available lists**
+
+```sh
+bundle exec jekyll-listmonk lists
+```
+
+**2. Create a campaign**
+
+```sh
+bundle exec jekyll-listmonk campaign 2025-12-19-white-fungus-issue-18-dino
+```
+
+**3. Send a test email**
+
+Create a campaign and immediately send a test email to check rendering:
+
+```sh
+bundle exec jekyll-listmonk campaign my-post --test-email me@example.com
+```
+
+**4. Upload a media file**
+
+```sh
+bundle exec jekyll-listmonk upload /path/to/image.jpg
+```
+
+### Campaign CLI flags
+
+- `--test-email EMAIL`: Sends a test email to this address for the created campaign.
+- `--picture-tag-preset PRESET`: rewrites `{% picture %}` tags to use this preset. If omitted, does not add/override presets (so Jekyll Picture Tag uses the site's default).
+- `--track-links`: appends `@TrackLink` to eligible `<a href="...">` URLs in the final HTML (useful for Listmonk link tracking).
+- `--frontmatter-image`: injects the post frontmatter `image` at the top of the body.
+- `--upload-media`: uploads referenced images to Listmonk media and rewrites `<img src>` to the returned `data.url`.
+- `--format html|markdown`: sets the campaign `content_type` and body format.
+- `--dry-run`: prints the final body and does not call Listmonk APIs. If used together with `--upload-media`, no uploads happen but `<img src>` URLs are rewritten to a guessed location: `LISTMONK_URL + "/uploads/" + image_filename`.
+
+### Environment variables (Reference)
+
+Most of these can be set in `_config.yml` under the `listmonk:` key.
+
+Required:
+- `LISTMONK_URL`
+- `LISTMONK_USER`
+- `LISTMONK_TOKEN`
+
+Optional:
+- `LISTMONK_LIST_IDS`
 - `LISTMONK_AUTH_MODE=header` (send `Authorization: token user:token` instead of Basic auth)
 - `LISTMONK_TEMPLATE_ID`
 - `LISTMONK_SUBJECT` (defaults to post title)
@@ -66,15 +109,6 @@ Optional:
 - `LISTMONK_CAMPAIGN_TYPE` (defaults to `regular`)
 - `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`
 - `LISTMONK_TAGS` (comma-separated)
-
-### Campaign CLI flags
-
-- `--picture-tag-preset PRESET`: rewrites `{% picture %}` tags to use this preset. If omitted, does not add/override presets (so Jekyll Picture Tag uses the site's default).
-- `--track-links`: appends `@TrackLink` to eligible `<a href="...">` URLs in the final HTML (useful for Listmonk link tracking).
-- `--frontmatter-image`: injects the post frontmatter `image` at the top of the body.
-- `--upload-media`: uploads referenced images to Listmonk media and rewrites `<img src>` to the returned `data.url`.
-- `--format html|markdown`: sets the campaign `content_type` and body format.
-- `--dry-run`: prints the final body and does not call Listmonk APIs. If used together with `--upload-media`, no uploads happen but `<img src>` URLs are rewritten to a guessed location: `LISTMONK_URL + "/uploads/" + image_filename`.
 
 ## Image behavior
 

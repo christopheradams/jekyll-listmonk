@@ -20,7 +20,7 @@ module JekyllListmonk
 
     def run
       global = OptionParser.new do |o|
-        o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload"
+        o.banner = "Usage: jekyll-listmonk <command> [args]\n\nCommands: campaign, upload, lists"
         o.on("--dry-run", "Render/print output but do not call Listmonk APIs") do
           @dry_run = true
         end
@@ -34,6 +34,19 @@ module JekyllListmonk
       raise "Missing command (campaign|upload)" if cmd.nil? || cmd.empty?
 
       case cmd
+      when "lists"
+        client = client_from_config
+        res = client.get_lists
+        lists = res.dig("data", "results") || []
+        if lists.empty?
+          puts "No lists found."
+        else
+          puts "Available Lists:"
+          lists.each do |l|
+            puts "  [#{l['id']}] #{l['name']} (#{l['type']})"
+          end
+        end
+        0
       when "campaign"
         upload_media = false
         format = "html"
@@ -41,6 +54,7 @@ module JekyllListmonk
         include_frontmatter_image = false
         picture_tag_preset = nil
         track_links = false
+        test_email = nil
         campaign_opts = OptionParser.new do |o|
           o.on("--upload-media", "Upload referenced images to Listmonk media and rewrite HTML to use returned URLs") do
             upload_media = true
@@ -57,6 +71,9 @@ module JekyllListmonk
           end
           o.on("--frontmatter-image", "Inject the post frontmatter `image` at the top of the body") do
             include_frontmatter_image = true
+          end
+          o.on("--test-email EMAIL", "Send a test email to this address for the created campaign") do |v|
+            test_email = v.to_s.strip
           end
           # Allow `campaign --dry-run` for convenience.
           o.on("--dry-run", "Alias for global --dry-run") { dry_run = true }
@@ -81,11 +98,11 @@ module JekyllListmonk
             html = absolutize_img_srcs(html, site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
             if dry_run
               html = rewrite_html_with_guessed_media_urls!(html, dest,
-                                                          listmonk_url: ENV.fetch("LISTMONK_URL"),
+                                                          listmonk_url: resolve_config[:url],
                                                           baseurl: rendered[:baseurl].to_s,
                                                           site_url: rendered[:site_url].to_s)
             else
-              client = ListmonkClient.from_env
+              client = client_from_config
               html = rewrite_html_with_uploaded_media!(html, dest, client: client,
                                                              baseurl: rendered[:baseurl].to_s,
                                                              site_url: rendered[:site_url].to_s)
@@ -116,25 +133,30 @@ module JekyllListmonk
           return 0
         end
 
-        client = ListmonkClient.from_env
+        client = client_from_config
+        cfg = resolve_config
 
-        name = ENV["LISTMONK_CAMPAIGN_NAME"].to_s
+        name = cfg[:campaign_name].to_s
         name = rendered[:title].to_s if name.empty?
 
-        subject = ENV["LISTMONK_SUBJECT"].to_s
+        subject = cfg[:subject].to_s
         subject = rendered[:title].to_s if subject.empty?
 
-        list_ids = ENV.fetch("LISTMONK_LIST_IDS").split(",").map(&:strip).reject(&:empty?).map(&:to_i)
+        list_ids = cfg[:list_ids].map(&:to_i)
+        if list_ids.empty?
+          input = prompt_for("List IDs (comma separated)")
+          list_ids = input.to_s.split(",").map(&:strip).reject(&:empty?).map(&:to_i)
+        end
         raise "LISTMONK_LIST_IDS must contain at least one list id" if list_ids.empty?
 
-        type = ENV.fetch("LISTMONK_CAMPAIGN_TYPE", "regular")
+        type = cfg[:campaign_type]
 
-        template_id = ENV["LISTMONK_TEMPLATE_ID"]&.to_s&.strip
+        template_id = cfg[:template_id]&.to_s&.strip
         template_id = template_id.to_i if template_id && !template_id.empty?
 
-        from_email = ENV["LISTMONK_FROM_EMAIL"]
-        from_name = ENV["LISTMONK_FROM_NAME"]
-        tags = ENV["LISTMONK_TAGS"]&.split(",")&.map(&:strip)&.reject(&:empty?)
+        from_email = cfg[:from_email]
+        from_name = cfg[:from_name]
+        tags = cfg[:tags]
 
         res = client.create_campaign!(
           name: name,
@@ -151,6 +173,13 @@ module JekyllListmonk
 
         id = res.dig("data", "id") || res["id"]
         warn "Created Listmonk campaign id=#{id || "(unknown)"}"
+        
+        if test_email && id
+          warn "Sending test email to #{test_email}..."
+          client.test_campaign!(id, test_email)
+          warn "Test email sent."
+        end
+
         0
       when "upload"
         path = @argv.shift
@@ -161,7 +190,7 @@ module JekyllListmonk
           return 0
         end
 
-        client = ListmonkClient.from_env
+        client = client_from_config
         res = client.upload_media!(path)
 
         data = res["data"]
@@ -183,6 +212,78 @@ module JekyllListmonk
     end
 
     private
+
+    def resolve_config
+      return @config if @config
+
+      # Try to load Jekyll config
+      begin
+        require "jekyll"
+        # Mute Jekyll's output
+        Jekyll.logger.log_level = :error
+        site_config = Jekyll.configuration({}) rescue {}
+        lm_config = site_config["listmonk"] || {}
+      rescue LoadError
+        lm_config = {}
+      end
+
+      # Helper to merge ENV and config, preferring ENV
+      fetch = ->(env_key, config_key) { ENV[env_key] || lm_config[config_key] }
+
+      list_ids = fetch.call("LISTMONK_LIST_IDS", "list_ids")
+      if list_ids.is_a?(String)
+        list_ids = list_ids.split(",").map(&:strip).reject(&:empty?)
+      end
+      # ensure array
+      list_ids = Array(list_ids)
+
+      tags = fetch.call("LISTMONK_TAGS", "tags")
+      if tags.is_a?(String)
+        tags = tags.split(",").map(&:strip).reject(&:empty?)
+      end
+      tags = Array(tags)
+
+      @config = {
+        url: fetch.call("LISTMONK_URL", "url"),
+        user: fetch.call("LISTMONK_USER", "username"),
+        token: fetch.call("LISTMONK_TOKEN", "token"),
+        list_ids: list_ids,
+        auth_mode: fetch.call("LISTMONK_AUTH_MODE", "auth_mode"),
+        template_id: fetch.call("LISTMONK_TEMPLATE_ID", "template_id"),
+        from_email: fetch.call("LISTMONK_FROM_EMAIL", "from_email"),
+        from_name: fetch.call("LISTMONK_FROM_NAME", "from_name"),
+        tags: tags,
+        subject: fetch.call("LISTMONK_SUBJECT", "subject"),
+        campaign_name: fetch.call("LISTMONK_CAMPAIGN_NAME", "campaign_name"),
+        campaign_type: fetch.call("LISTMONK_CAMPAIGN_TYPE", "campaign_type") || "regular"
+      }
+    end
+
+    def client_from_config
+      cfg = resolve_config
+      if cfg[:url].to_s.empty?
+        cfg[:url] = prompt_for("Listmonk URL")
+      end
+      if cfg[:user].to_s.empty?
+        cfg[:user] = prompt_for("Listmonk Username")
+      end
+      if cfg[:token].to_s.empty?
+        cfg[:token] = prompt_for("Listmonk Token/Password")
+      end
+
+      raise "Missing configuration: LISTMONK_URL / listmonk.url" if cfg[:url].to_s.empty?
+      raise "Missing configuration: LISTMONK_USER / listmonk.username" if cfg[:user].to_s.empty?
+      raise "Missing configuration: LISTMONK_TOKEN / listmonk.token" if cfg[:token].to_s.empty?
+
+      use_token_header = cfg[:auth_mode].to_s.downcase == "header"
+      ListmonkClient.new(base_url: cfg[:url], username: cfg[:user], token: cfg[:token], use_token_header: use_token_header)
+    end
+
+    def prompt_for(label, default: nil)
+      print "#{label}#{default ? " [#{default}]" : ""}: "
+      val = $stdin.gets.to_s.strip
+      val.empty? ? default : val
+    end
 
     def absolutize_img_srcs(html, site_url:, baseurl:)
       site = site_url.to_s.strip.sub(%r{/\z}, "")

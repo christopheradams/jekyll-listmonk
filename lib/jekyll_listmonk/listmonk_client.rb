@@ -29,6 +29,10 @@ module JekyllListmonk
       @timeout = timeout
     end
 
+    def get_lists
+      get_json!("/api/lists")
+    end
+
     def create_campaign!(
       name:,
       subject:,
@@ -64,6 +68,10 @@ module JekyllListmonk
 
     # Upload a media file. Returns parsed JSON response.
     # https://listmonk.app/docs/apis/media/
+    def test_campaign!(id, email)
+      post_json!("/api/campaigns/#{id}/test", { email: email })
+    end
+
     def upload_media!(file_path)
       path = file_path.to_s
       raise Error, "File not found: #{path}" unless File.file?(path)
@@ -115,6 +123,18 @@ module JekyllListmonk
       http.open_timeout = @timeout
       http.read_timeout = @timeout
       http
+    end
+
+    def get_json!(path)
+      uri = @base_uri.dup
+      uri.path = join_uri_path(uri.path, path)
+
+      req = Net::HTTP::Get.new(uri)
+      req["Accept"] = "application/json"
+      req["Content-Type"] = "application/json"
+
+      apply_auth!(req)
+      request_json!(uri, req)
     end
 
     def post_json!(path, payload)
