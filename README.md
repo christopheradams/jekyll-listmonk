@@ -102,6 +102,8 @@ Optional:
   the first line of content.
 - If the site does not have the Liquid `picture` tag available (for example, it is not using
   `jekyll_picture_tag`), the injected frontmatter image falls back to a Markdown image (`![alt](url)`).
+- If the post already starts with the same image (either a `{% picture %}` block or a Markdown image),
+  the frontmatter image is not injected again (to avoid duplicates).
 - In-body `{% picture ... %}` tags have `--img class="..."` removed, and if
   `--picture-tag-preset` is provided, they are rewritten to use that preset.
 - Any resulting `srcset`/`sizes` attributes are stripped from `<img>` tags in the output.
