@@ -133,34 +133,34 @@ bundle exec jekyll-listmonk upload /path/to/image.jpg
 
 ## Image behavior
 
-- The post frontmatter `image` is only injected when `campaign --frontmatter-image` is set.
-- If the frontmatter image is injected and you're using `campaign --upload-media`, a
-  `{% picture ... %}` tag is injected as the first line of content (when the Liquid `picture` tag is available).
-- If the frontmatter image is injected and `--upload-media` is not used, it is injected as a Markdown image (`![alt](url)`)
-  so the email does not depend on picture-tag-generated derivatives existing in the site build.
-- If the site does not have the Liquid `picture` tag available (for example, it is not using
-  `jekyll_picture_tag`), the injected frontmatter image falls back to a Markdown image (`![alt](url)`).
-- If the post already starts with the same image (either a `{% picture %}` block or a Markdown image),
-  the frontmatter image is not injected again (to avoid duplicates).
-- In-body `{% picture ... %}` tags have `--img class="..."` removed, and if
-  `--picture-tag-preset` is provided, they are rewritten to use that preset.
-- Any resulting `srcset`/`sizes` attributes are stripped from `<img>` tags in the output.
+To ensure emails render correctly across clients, this gem automatically:
 
-If you pass `--picture-tag-preset`, the target site must define that preset in `_data/picture.yml`.
+1.  **Injects Frontmatter Image**: If you use `--frontmatter-image`, the image defined in the post's frontmatter is added to the top of the email.
+    *   *Smart check*: It won't be added if the post already starts with that same image.
+    *   *Fallback*: Uses a standard Markdown image if `jekyll_picture_tag` isn't available.
 
-### Recommended picture preset
+2.  **Optimizes `{% picture %}` Tags**:
+    *   **Strips Classes**: Removes CSS classes (like `--img class="..."`) that might break email layouts.
+    *   **Enforces Preset**: If you provide `--picture-tag-preset`, all picture tags are rewritten to use it (ensuring consistent sizing/formatting).
+    *   **Cleans Output**: Strips `srcset` and `sizes` attributes from the final HTML `<img>` tags, as these are poorly supported in email clients.
 
-Install `jekyll_picture_tag` with your jekyll plugins.
+### Recommended Picture Preset
 
-Add this preset to `_data/picture.yml`, and call the campaign command
-with the option `--picture-tag-preset newsletter`.
+If you use `jekyll_picture_tag`, add a dedicated "newsletter" preset to your `_data/picture.yml`. This ensures images are generated at a fixed width suitable for email.
 
-```
+```yaml
 # _data/picture.yml
 presets:
   newsletter:
     formats: [jpg]
-    widths: [640]
-    fallback_width: 640
+    widths: [600]
+    fallback_width: 600
     markup: img
-``
+```
+
+Then configure it in `_config.yml`:
+
+```yaml
+listmonk:
+  picture_tag_preset: "newsletter"
+```
