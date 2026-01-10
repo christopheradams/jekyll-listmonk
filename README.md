@@ -1,3 +1,6 @@
+**WARNING: this package is EXPERIMENTAL and not recommended for
+production.**
+
 # jekyll_listmonk
 
 Create listmonk campaigns from Jekyll posts.
