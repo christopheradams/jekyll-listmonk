@@ -49,13 +49,16 @@ listmonk:
   list_ids: [1]
   from_email: "me@example.com" # optional
   from_name: "My Newsletter" # optional
-  # Other options: template_id, tags (array), campaign_type
-  # Feature flags:
+  # [CAMPAIGN OPTIONS]
+  # template_id: 1
+  # tags: ["tag1", "tag2"]
+  # campaign_type: "regular"
+  # format: "html"
+  # [FEATURE FLAGS]
   # upload_media: true
   # track_links: true
   # frontmatter_image: true
   # picture_tag_preset: "listmonk"
-  # format: "html"
 ```
 
 #### 2. Environment Variables (Secrets)
