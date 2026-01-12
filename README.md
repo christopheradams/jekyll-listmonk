@@ -1,5 +1,4 @@
-**WARNING: this package is EXPERIMENTAL and not recommended for
-production.**
+**Note:** This package is in early development. The API may change between versions.
 
 # jekyll_listmonk
 
