@@ -46,6 +46,12 @@ module JekyllListmonk
       html = renderer.run.to_s
       html = @rewriter.strip_responsive_img_attributes(html)
 
+      # Append link paragraph if the post has a link field in frontmatter
+      if (link = doc.data["link"]) && !link.to_s.strip.empty?
+        link_display = link.to_s.sub(%r{\A\w+://}, "")
+        html = html.to_s + %(<p>Link: <a href="#{link}">#{link_display}</a></p>)
+      end
+
       doc.data["layout"] = original_layout
       doc.content = original_content
 
