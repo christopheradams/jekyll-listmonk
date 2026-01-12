@@ -1,6 +1,8 @@
+require_relative "lib/jekyll_listmonk/version"
+
 Gem::Specification.new do |spec|
   spec.name = "jekyll_listmonk"
-  spec.version = "0.3.1"
+  spec.version = JekyllListmonk::VERSION
   spec.authors = ["Christopher Adams"]
   spec.email = ["info@christopheradams.io"]
 
@@ -24,6 +26,6 @@ Gem::Specification.new do |spec|
   # Jekyll is required at runtime; this tool is intended to be run inside a target
   # Jekyll site's Bundler environment so the site's plugins are available too.
   spec.add_dependency "jekyll", ">= 4.0", "< 5.0"
+  spec.add_dependency "nokogiri", ">= 1.13"
   spec.add_dependency "reverse_markdown", ">= 2.1"
 end
-

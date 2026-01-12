@@ -30,7 +30,7 @@ module JekyllListmonk
     end
 
     def get_lists
-      get_json!("/api/lists")
+      get_json!(Constants::API_LISTS)
     end
 
     def create_campaign!(
@@ -63,13 +63,12 @@ module JekyllListmonk
       payload[:from_name] = from_name if from_name && !from_name.empty?
       payload[:tags] = tags if tags && !tags.empty?
 
-      post_json!("/api/campaigns", payload)
+      post_json!(Constants::API_CAMPAIGNS, payload)
     end
 
-    # Upload a media file. Returns parsed JSON response.
-    # https://listmonk.app/docs/apis/media/
+    # Send a test email for a campaign.
     def test_campaign!(id, email)
-      post_json!("/api/campaigns/#{id}/test", { email: email })
+      post_json!("#{Constants::API_CAMPAIGNS}/#{id}/test", { email: email })
     end
 
     def upload_media!(file_path)
@@ -83,11 +82,11 @@ module JekyllListmonk
       body = +""
       body << "--#{boundary}\r\n"
       body << %(Content-Disposition: form-data; name="file"; filename="#{filename}"\r\n)
-      body << "Content-Type: application/octet-stream\r\n\r\n"
+      body << "Content-Type: #{Constants::CONTENT_TYPE_OCTET_STREAM}\r\n\r\n"
       body << file_bytes
       body << "\r\n--#{boundary}--\r\n"
 
-      post_multipart!("/api/media", body, boundary: boundary)
+      post_multipart!(Constants::API_MEDIA, body, boundary: boundary)
     end
 
     # Convert a relative `/uploads/...` path to a full URL using LISTMONK_URL.
@@ -130,8 +129,8 @@ module JekyllListmonk
       uri.path = join_uri_path(uri.path, path)
 
       req = Net::HTTP::Get.new(uri)
-      req["Accept"] = "application/json"
-      req["Content-Type"] = "application/json"
+      req["Accept"] = Constants::CONTENT_TYPE_JSON
+      req["Content-Type"] = Constants::CONTENT_TYPE_JSON
 
       apply_auth!(req)
       request_json!(uri, req)
@@ -142,8 +141,8 @@ module JekyllListmonk
       uri.path = join_uri_path(uri.path, path)
 
       req = Net::HTTP::Post.new(uri)
-      req["Accept"] = "application/json"
-      req["Content-Type"] = "application/json"
+      req["Accept"] = Constants::CONTENT_TYPE_JSON
+      req["Content-Type"] = Constants::CONTENT_TYPE_JSON
       req.body = JSON.dump(payload)
 
       apply_auth!(req)
@@ -156,8 +155,8 @@ module JekyllListmonk
       uri.path = join_uri_path(uri.path, path)
 
       req = Net::HTTP::Post.new(uri)
-      req["Accept"] = "application/json"
-      req["Content-Type"] = "multipart/form-data; boundary=#{boundary}"
+      req["Accept"] = Constants::CONTENT_TYPE_JSON
+      req["Content-Type"] = "#{Constants::CONTENT_TYPE_MULTIPART}; boundary=#{boundary}"
       req.body = body
 
       apply_auth!(req)
