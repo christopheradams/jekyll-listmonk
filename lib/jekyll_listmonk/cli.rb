@@ -10,6 +10,9 @@ module JekyllListmonk
       130
     rescue StandardError => e
       warn "Error: #{e.message}"
+      if ENV["DEBUG"] || ENV["JEKYLL_LISTMONK_DEBUG"]
+        e.backtrace&.each { |line| warn "  #{line}" }
+      end
       1
     end
 
@@ -179,6 +182,7 @@ module JekyllListmonk
           html = rendered[:html].to_s
 
           html_processor = HtmlProcessor.new(site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
+          html = html_processor.rewrite_footnotes_for_email(html)
           html = html_processor.absolutize_img_srcs(html)
           html = html_processor.absolutize_hrefs(html)
 
@@ -212,6 +216,7 @@ module JekyllListmonk
         html = rendered[:html].to_s
 
         html_processor = HtmlProcessor.new(site_url: rendered[:site_url].to_s, baseurl: rendered[:baseurl].to_s)
+        html = html_processor.rewrite_footnotes_for_email(html)
         html = html_processor.absolutize_img_srcs(html)
         html = html_processor.absolutize_hrefs(html)
       end
