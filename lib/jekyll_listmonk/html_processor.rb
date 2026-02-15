@@ -65,7 +65,80 @@ module JekyllListmonk
       doc.to_html
     end
 
+    # Rewrites footnote HTML for email compatibility.
+    #
+    # Kramdown renders footnotes as internal page links which don't work in
+    # emails.  This method:
+    #   1. Replaces footnote reference links in the body with **<sup>N</sup>**
+    #   2. Removes reverse-footnote backlinks (↩) from the footnotes section
+    #   3. Strips the wrapper <div> and <hr>, leaving a clean <ol> list
+    def rewrite_footnotes_for_email(html)
+      doc = Nokogiri::HTML.fragment(html.to_s)
+
+      # --- Footnote references in the body ---
+      # Kramdown generates:
+      #   <sup id="fnref:N" role="doc-noteref">
+      #     <a href="#fn:N" class="footnote" rel="footnote">N</a>
+      #   </sup>
+      # Replace each <sup id="fnref:..."> with <strong><sup>N</sup></strong>.
+      doc.css("sup[id^='fnref']").each do |sup|
+        num = sup.text.strip
+        next if num.empty?
+
+        sup.replace("<strong><sup>#{escape_html(num)}</sup></strong>")
+      end
+
+      # Catch any remaining standalone <a class="footnote"> links that were
+      # not wrapped in a <sup> (varies by kramdown version / config).
+      doc.css("a.footnote").each do |link|
+        num = link.text.strip
+        next if num.empty?
+
+        link.replace("<strong><sup>#{escape_html(num)}</sup></strong>")
+      end
+
+      # --- Footnotes section at the bottom ---
+      # Kramdown generates:
+      #   <div class="footnotes" role="doc-endnotes">
+      #     <ol>
+      #       <li id="fn:N" role="doc-endnote">
+      #         <p>Content <a href="#fnref:N" class="reversefootnote">↩</a></p>
+      #       </li>
+      #     </ol>
+      #   </div>
+      footnotes_div = doc.at_css("div.footnotes")
+      if footnotes_div
+        # Remove ↩ backlinks
+        footnotes_div.css("a.reversefootnote").each(&:remove)
+
+        # Remove the <hr> separator kramdown may insert
+        footnotes_div.css("hr").each(&:remove)
+
+        # Strip page-internal IDs and ARIA roles from <li> elements
+        footnotes_div.css("li").each do |li|
+          li.remove_attribute("id")
+          li.remove_attribute("role")
+        end
+
+        # Replace the wrapper <div> with just the <ol>
+        ol = footnotes_div.at_css("ol")
+        if ol
+          footnotes_div.replace(ol)
+        end
+      end
+
+      doc.to_html
+    end
+
     private
+
+    def escape_html(text)
+      text.to_s
+        .gsub("&", "&amp;")
+        .gsub("<", "&lt;")
+        .gsub(">", "&gt;")
+        .gsub('"', "&quot;")
+    end
 
     def normalize_site_url(url)
       url.to_s.strip.sub(%r{/\z}, "")
@@ -79,7 +152,11 @@ module JekyllListmonk
     end
 
     def absolutize_path(raw_url, skip_special_protocols: false)
-      return nil if raw_url.empty?
+      return nil if raw_url.nil? || raw_url.empty?
+
+      # Fragment-only URLs (e.g. "#fn:1") are page-internal anchors and
+      # must not be turned into absolute URLs.
+      return nil if raw_url.start_with?("#")
 
       # Preserve query/fragment while normalizing the path portion
       path, frag = raw_url.split("#", 2)
