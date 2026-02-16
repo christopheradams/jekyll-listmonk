@@ -85,6 +85,7 @@ module JekyllListmonk
         num = sup.text.strip
         next if num.empty?
 
+        strip_trailing_space(sup)
         sup.replace("<strong><sup>#{escape_html(num)}</sup></strong>")
       end
 
@@ -94,6 +95,7 @@ module JekyllListmonk
         num = link.text.strip
         next if num.empty?
 
+        strip_trailing_space(link)
         link.replace("<strong><sup>#{escape_html(num)}</sup></strong>")
       end
 
@@ -131,6 +133,16 @@ module JekyllListmonk
     end
 
     private
+
+    # Remove trailing whitespace from the text node immediately before +node+.
+    # Kramdown often leaves a space between prose and the footnote <sup>,
+    # e.g. "change. <sup>", which looks wrong after the link is removed.
+    def strip_trailing_space(node)
+      prev = node.previous
+      if prev && prev.text?
+        prev.content = prev.content.sub(/\s+\z/, "")
+      end
+    end
 
     def escape_html(text)
       text.to_s
