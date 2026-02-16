@@ -80,13 +80,16 @@ module JekyllListmonk
       #   <sup id="fnref:N" role="doc-noteref">
       #     <a href="#fn:N" class="footnote" rel="footnote">N</a>
       #   </sup>
-      # Replace each <sup id="fnref:..."> with <strong><sup>N</sup></strong>.
+      # Replace each <sup id="fnref:..."> with <sup><b>N</b></sup>.
+      # The outer <sup> ensures reverse_markdown passes the whole node
+      # through as raw HTML rather than converting <strong> to ** and
+      # inserting a word-boundary space.
       doc.css("sup[id^='fnref']").each do |sup|
         num = sup.text.strip
         next if num.empty?
 
         strip_trailing_space(sup)
-        sup.replace("<strong><sup>#{escape_html(num)}</sup></strong>")
+        sup.replace("<sup><b>#{escape_html(num)}</b></sup>")
       end
 
       # Catch any remaining standalone <a class="footnote"> links that were
@@ -96,7 +99,7 @@ module JekyllListmonk
         next if num.empty?
 
         strip_trailing_space(link)
-        link.replace("<strong><sup>#{escape_html(num)}</sup></strong>")
+        link.replace("<sup><b>#{escape_html(num)}</b></sup>")
       end
 
       # --- Footnotes section at the bottom ---

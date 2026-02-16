@@ -408,14 +408,7 @@ module JekyllListmonk
         raise "reverse_markdown is required for --format markdown (#{e.message}). Add it to your bundle or install it."
       end
 
-      md = ReverseMarkdown.convert(html.to_s)
-
-      # reverse_markdown inserts a space before ** emphasis markers to
-      # satisfy Markdown parsers that require word boundaries.  For
-      # footnote superscripts this produces "word. **<sup>1</sup>**"
-      # instead of the expected "word.**<sup>1</sup>**".  Strip that
-      # unwanted space.
-      md.gsub(/ (\*\*<sup>[^<]+<\/sup>\*\*)/, '\1')
+      ReverseMarkdown.convert(html.to_s)
     end
   end
 end
