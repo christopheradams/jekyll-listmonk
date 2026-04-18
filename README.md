@@ -60,16 +60,44 @@ listmonk:
   # picture_tag_preset: "listmonk"
 ```
 
-#### 2. Environment Variables (Secrets)
+#### 2. Environment Variables
 
-Do not commit these to git. Use a `.env` file (gitignored) or export them in your shell.
+**Note**: Do not add the API user or token variables to your Jekyll
+config and don't commit them to git. Export them in your shell or use a
+`.env` file (see below)
 
 ```env
 LISTMONK_USER=api_user
 LISTMONK_TOKEN=api_token
 ```
 
-Supported variables: `LISTMONK_URL`, `LISTMONK_USER`, `LISTMONK_TOKEN`, `LISTMONK_LIST_IDS`, `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`, `LISTMONK_TEMPLATE_ID`, `LISTMONK_TAGS`, `LISTMONK_SUBJECT`, `LISTMONK_CAMPAIGN_NAME`, `LISTMONK_CAMPAIGN_TYPE`, `LISTMONK_AUTH_MODE`.
+Supported environment variables: `LISTMONK_AUTH_MODE`,
+`LISTMONK_CAMPAIGN_NAME`, `LISTMONK_CAMPAIGN_TYPE`, `LISTMONK_DEBUG`,
+`LISTMONK_FORMAT`, `LISTMONK_FROM_EMAIL`, `LISTMONK_FROM_NAME`,
+`LISTMONK_FRONTMATTER_IMAGE`, `LISTMONK_LIST_IDS`,
+`LISTMONK_PICTURE_TAG_PRESET`, `LISTMONK_SUBJECT`, `LISTMONK_TAGS`,
+`LISTMONK_TEMPLATE_ID`, `LISTMONK_TOKEN`, `LISTMONK_TRACK_LINKS`,
+`LISTMONK_UPLOAD_MEDIA`, `LISTMONK_URL`, `LISTMONK_USER`
+
+##### dotenv
+
+Alternatively, add the `dotenv` gem to your site's `Gemfile`:
+
+```ruby
+# Gemfile
+group :development do
+  gem "dotenv"
+end
+```
+
+Add the environment variables to a `.env` file. Add this file to your
+`.gitignore` and exclude it from your site build:
+
+```yaml
+#_config.yml
+exclude:
+  - .env
+```
 
 ### Commands
 
