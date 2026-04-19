@@ -81,22 +81,15 @@ Supported environment variables: `LISTMONK_AUTH_MODE`,
 
 ##### dotenv
 
-Alternatively, add the `dotenv` gem to your site's `Gemfile`:
+Add the environment variables to a `.env` file, and list in that file in
+`.gitignore`. Jekyll excludes dotfiles from the site build by
+default. Add the `dotenv` gem to your site's `Gemfile`:
 
 ```ruby
 # Gemfile
 group :development do
   gem "dotenv"
 end
-```
-
-Add the environment variables to a `.env` file. Add this file to your
-`.gitignore` and exclude it from your site build:
-
-```yaml
-#_config.yml
-exclude:
-  - .env
 ```
 
 ### Commands
